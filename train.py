@@ -1,3 +1,4 @@
+import os
 import time
 import torch
 import argparse
@@ -7,6 +8,8 @@ from transformers import AdamW, get_linear_schedule_with_warmup
 
 from model.data import Dataset, DataLoader
 from model.model import Model
+
+from transformers.debug_utils import DebugUnderflowOverflow
 
 
 class Trainer:
@@ -24,7 +27,7 @@ class Trainer:
 
     def train(self, name, amp=False, checkpointing=False):
         # Print infos to console
-        print(f'### Start Training ###')
+        print(f"### Start Training ###")
         print(f'running on: {self.device1} {self.device2}')
         print(f'running for: {self.config["epochs"]} epochs')
         print(f'number of batches: {len(self.dataloader)}')
@@ -37,6 +40,7 @@ class Trainer:
         model = Model(self.config, self.device1, self.device2, checkpointing)
         model.bert_model.to(self.device1)
         model.task_model.to(self.device2)
+        # debug_overflow = DebugUnderflowOverflow(model)
         model.train()
 
         # define loss and optimizer
@@ -72,6 +76,7 @@ class Trainer:
         # run indefinitely until keyboard interrupt
         for e in range(epoch, self.config['epochs']):
             init_epoch_time = time.time()
+            acc_loss = 0
             for i, batch in enumerate(self.dataloader):
                 optimizer_bert.zero_grad()
                 optimizer_task.zero_grad()
@@ -93,12 +98,17 @@ class Trainer:
                 scheduler_bert.step()
                 scheduler_task.step()
                 if (i+1) % 100 == 0:
-                    print(f'Batch {i+1:04d} of {len(self.dataloader)}')
+                    print(f'Batch {i+1:04d} of {len(self.dataloader)}', flush=True)
+                    # print(f'Loss = {loss}', flush=True)
+                acc_loss += loss    
 
-            self.save_ckpt(e, model, optimizer_bert, optimizer_task, scheduler_bert, scheduler_task, scaler)
+            # create a checkpoint every 10th epoch or if last epoch
+            if (e+1) % 10 == 0 or (e+1) == self.config['epochs']:
+                self.save_ckpt(e, model, optimizer_bert, optimizer_task, scheduler_bert, scheduler_task, scaler)
             epoch_time = time.time() - init_epoch_time
             epoch_time = time.strftime('%H:%M:%S', time.gmtime(epoch_time))
-            print(f'Epoch {e:03d} took: {epoch_time}\n')
+            print(f'Epoch {e:03d} took: {epoch_time}\n', flush=True)
+            print(f'Loss for Epoch {e:03d}: {acc_loss/len(self.dataloader)}\n', flush=True)
 
     def save_ckpt(self, epoch, model, optimizer_bert, optimizer_task, scheduler_bert, scheduler_task, scaler):
         path = self.path.joinpath(f'ckpt_epoch-{epoch:03d}.pt.tar')
@@ -111,6 +121,12 @@ class Trainer:
             'scheduler_task': scheduler_task.state_dict(),
             'scaler': scaler.state_dict()
         }, path)
+
+        # keep only the latest 5 checkpoints
+        # if epoch-5 >= 0:
+        #     delete_path = self.path.joinpath(f'ckpt_epoch-{(epoch-5):03d}.pt.tar')
+        #     if os.path.exists(delete_path):
+        #         os.remove(delete_path)
 
     def load_ckpt(self, model, optimizer_bert, optimizer_task, scheduler_bert, scheduler_task, scaler):
         # check if any checkpoint accessible

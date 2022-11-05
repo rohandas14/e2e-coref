@@ -2,7 +2,7 @@
 
 ###################################### HELPER FUNCTIONS ######################################
 function dlx() {
-  wget $1/$2
+  wget $1/$2 --no-check-certificate
   tar -xvzf $2
   rm $2
 }
@@ -25,14 +25,14 @@ mkdir -p data/data
 mkdir -p data/embs
 
 # download and unzip conll data and scripts
-conll_url=http://conll.cemantix.org/2012/download
-dlx $conll_url conll-2012-train.v4.tar.gz
-dlx $conll_url conll-2012-development.v4.tar.gz
-dlx $conll_url/test conll-2012-test-key.tar.gz
-dlx $conll_url/test conll-2012-test-official.v9.tar.gz
-dlx $conll_url conll-2012-scripts.v3.tar.gz
-dlx http://conll.cemantix.org/download reference-coreference-scorers.v8.01.tar.gz
-mv reference-coreference-scorers conll-2012/scorer
+# conll_url=https://conll.cemantix.org/2012/download
+# dlx $conll_url conll-2012-train.v4.tar.gz 
+# dlx $conll_url conll-2012-development.v4.tar.gz
+# dlx $conll_url/test conll-2012-test-key.tar.gz
+# dlx $conll_url/test conll-2012-test-official.v9.tar.gz
+# dlx $conll_url conll-2012-scripts.v3.tar.gz
+# dlx https://conll.cemantix.org/download reference-coreference-scorers.v8.01.tar.gz
+# mv reference-coreference-scorers conll-2012/scorer
 
 # create data by combining conll with ontonotes data
 bash conll-2012/v3/scripts/skeleton2conll.sh -D $1/data/files/data conll-2012

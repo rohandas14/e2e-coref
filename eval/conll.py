@@ -39,13 +39,14 @@ def output_conll(input_file, output_file, predictions, subtoken_map):
     elif row[0].startswith("#"):
       begin_match = re.match(BEGIN_DOCUMENT_REGEX, line)
       if begin_match:
-        doc_key = get_doc_key(begin_match.group(1), begin_match.group(2))
+        # doc_key = get_doc_key(begin_match.group(1), begin_match.group(2))
+        doc_key = begin_match.group(1) # RD: added for CorefUD
         start_map, end_map, word_map = prediction_map[doc_key]
         word_index = 0
       output_file.write(line)
       output_file.write("\n")
     else:
-      assert get_doc_key(row[0], row[1]) == doc_key
+      # assert get_doc_key(row[0], row[1]) == doc_key
       coref_list = []
       if word_index in end_map:
         for cluster_id in end_map[word_index]:
@@ -81,13 +82,15 @@ def official_conll_eval(gold_path, predicted_path, metric, official_stdout=False
     print(stdout)
 
   coref_results_match = re.match(COREF_RESULTS_REGEX, stdout)
+  print(coref_results_match)
   recall = float(coref_results_match.group(1))
   precision = float(coref_results_match.group(2))
   f1 = float(coref_results_match.group(3))
   return { "r": recall, "p": precision, "f": f1 }
 
 def evaluate_conll(gold_path, predictions, subtoken_map, official_stdout=False):
-  with tempfile.NamedTemporaryFile(delete=True, mode='w') as prediction_file:
+  with open("./predictions/pred.txt", "w") as prediction_file:
+  #with tempfile.NamedTemporaryFile(delete=False, mode='w') as prediction_file:
     with open(gold_path, "r") as gold_file:
       output_conll(gold_file, prediction_file, predictions, subtoken_map)
     print("Predicted conll file: {}".format(prediction_file.name))
