@@ -51,10 +51,11 @@ class Evaluator:
         coref_evaluator = metrics.CorefEvaluator()
 
         with torch.no_grad():
+            print(self.dataloader)
             for i, batch in enumerate(self.dataloader):
                 # collect data for evaluating batch
                 with torch.cuda.amp.autocast(enabled=amp):
-                    _, segm_len, _, _, gold_starts, gold_ends, _, cand_starts, cand_ends = batch
+                    _, segm_len, _, _, gold_starts, gold_ends, _, cand_starts, cand_ends, token_map, morph_map = batch
                     scores, labels, antes, ment_starts, ment_ends, cand_scores = self.model(*batch)
 
                 # update mention evaluators

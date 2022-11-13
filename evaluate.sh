@@ -27,4 +27,6 @@ export HF_DATASETS_CACHE="$SLURM_SCRATCH/cache/HF/datasets"
 
 # python3 evaluate.py -c xlm-roberta-base -p 'xlm-roberta-base-fp32/ckpt_epoch-059.pt.tar' --amp
 
-python3 evaluate.py -c multilingual-bert-base -p 'multilingual-bert-base-fp32/russian/ckpt_epoch-399.pt.tar' --amp
+# python3 evaluate.py -c multilingual-bert-base-polish -p 'multilingual-bert-base-fp32/morph/polish-sum/ckpt_epoch-059.pt.tar'
+
+python3 evaluate.py -c multilingual-bert-base-russian -p 'multilingual-bert-base-fp32/morph/russian/ckpt_epoch-299.pt.tar'

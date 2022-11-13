@@ -63,7 +63,7 @@ class ModelTask(nn.Module):
         self.morph_emb = nn.Embedding(morph_feature_num, morph_dim, padding_idx=0)
         self.morph_emb.weight.data[0].fill_(0) # RD: Doesn't work
         encoder_layer = nn.TransformerEncoderLayer(d_model=morph_dim, nhead=4)
-        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=3)
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=1)
 
         # feature embeddings
         bin_width = self.config['bin_widths']
@@ -137,7 +137,7 @@ class ModelTask(nn.Module):
 
         # combine different embeddings to single mention embedding
         # warning: different order than proposed in the paper
-        #return torch.cat((start_embs, end_embs, width_embs, head_embs), dim=1), ment_dist
+        # return torch.cat((start_embs, end_embs, width_embs, head_embs), dim=1), ment_dist
 
         return torch.cat((start_embs, end_embs, width_embs, head_embs, morph_embs), dim=1), ment_dist
 
@@ -153,13 +153,13 @@ class ModelTask(nn.Module):
             for j in range(ment_starts[i], ment_ends[i]+1):
                 morph_feat_vector = morph_map[str(token_map[j])]
                 if len(morph_feat_vector) > 0:
-                    embds = self.morph_emb(torch.tensor(morph_feat_vector, dtype=torch.int))
+                    embds = self.morph_emb(torch.tensor(morph_feat_vector, dtype=torch.int).to(self.device))
                     sum = torch.sum(embds, 0)
                     men_morph_feats.append(sum)
                 else:
-                    men_morph_feats.append(pad_tensor)
+                    men_morph_feats.append(pad_tensor.to(self.device))
                 #   embds = self.morph_emb(torch.tensor([0], dtype=torch.int))
-            out = self.transformer_encoder(torch.stack(men_morph_feats))
+            out = self.transformer_encoder(torch.stack(men_morph_feats).to(self.device))
             out = torch.mean(out, 0)
             morph_feats.append(out)
 

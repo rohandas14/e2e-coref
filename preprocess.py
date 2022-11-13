@@ -295,7 +295,10 @@ def get_document(doc_key, language, seg_len, tokenizer, udapi_document=None):
         word_feats_onehot = []
         ud_features_dict = ud_features.get_ud_features_dict()
         for feat in word_feats:
-            word_feats_onehot.append(ud_features_dict[feat])
+            try:
+                word_feats_onehot.append(ud_features_dict[feat])
+            except:
+                continue
         document_state.morph_features[word_idx] = word_feats_onehot
         subtokens = tokenizer.tokenize(word)
         document_state.tokens.append(word)
