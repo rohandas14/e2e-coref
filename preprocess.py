@@ -56,6 +56,9 @@ class DocumentState(object):
         self.sentence_end = []
         self.info = []  # Only non-none for the first subtoken of each word
 
+        # Token indexed morphological features
+        self.morph_features = {}
+
         # Linear list mapped to subtokens with CLS, SEP
         self.sent_map = []
 
@@ -150,6 +153,7 @@ class DocumentState(object):
             "clusters": merged_clusters,
             'sent_map': sent_map,
             "token_map": token_map,
+            "morph_map": self.morph_features,
             'pronouns': self.pronouns
         }
 
@@ -234,9 +238,10 @@ class DocumentState(object):
             "constituents": [],
             "ner": [],
             "clusters": merged_clusters,
-            'sent_map': sent_map,
+            "sent_map": sent_map,
             "token_map": token_map,
-            'pronouns': self.pronouns
+            "morph_map": self.morph_features,
+            "pronouns": self.pronouns
         }
 
 
@@ -286,6 +291,12 @@ def get_document(doc_key, language, seg_len, tokenizer, udapi_document=None):
             # assert len(row) >= 12
         word_idx += 1
         word = normalize_word(node.form, language)
+        word_feats = node.feats._string.split('|') if node.feats else []
+        word_feats_onehot = []
+        ud_features_dict = ud_features.get_ud_features_dict()
+        for feat in word_feats:
+            word_feats_onehot.append(ud_features_dict[feat])
+        document_state.morph_features[word_idx] = word_feats_onehot
         subtokens = tokenizer.tokenize(word)
         document_state.tokens.append(word)
         document_state.token_end += [False] * (len(subtokens) - 1) + [True]
@@ -299,8 +310,8 @@ def get_document(doc_key, language, seg_len, tokenizer, udapi_document=None):
     document_state.sentence_end[-1] = True
 
     # Split documents
-    constraits1 = document_state.sentence_end if language != 'arabic' else document_state.token_end
-    split_into_segments(document_state, seg_len, constraits1, document_state.token_end, tokenizer)
+    constraints1 = document_state.sentence_end if language != 'arabic' else document_state.token_end
+    split_into_segments(document_state, seg_len, constraints1, document_state.token_end, tokenizer)
     if udapi_document is not None:
         document = document_state.finalize_from_udapi(udapi_document)
     else:
@@ -339,7 +350,7 @@ def minimize_language(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Preprocess CorefUD dataset.')
-    parser.add_argument('-c', metavar='CONF', default='bert-base', help='configuration (see coref.conf)')
+    parser.add_argument('-c', metavar='CONF', default='multilingual-bert-base', help='configuration (see coref.conf)')
     args = parser.parse_args()
     config = ConfigFactory.parse_file('./coref.conf')[args.c]
     os.makedirs(config.data_folder, exist_ok=True)

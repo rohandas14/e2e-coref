@@ -57,6 +57,14 @@ class ModelTask(nn.Module):
         bert_size = self.config['bert_emb_size']
         self.span_head = nn.Linear(bert_size, 1)
 
+        # morphology embedding
+        morph_feature_num = 186
+        morph_dim = 64
+        self.morph_emb = nn.Embedding(morph_feature_num, morph_dim, padding_idx=0)
+        self.morph_emb.weight.data[0].fill_(0) # RD: Doesn't work
+        encoder_layer = nn.TransformerEncoderLayer(d_model=morph_dim, nhead=4)
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=3)
+
         # feature embeddings
         bin_width = self.config['bin_widths']
         feature_size = self.config['feature_size']
@@ -69,7 +77,7 @@ class ModelTask(nn.Module):
         # scorer for mentions and antecedents
         hidden_size = self.config['hidden_size']
         hidden_depth = self.config['hidden_depth']
-        ment_emb_size = 3 * bert_size + feature_size
+        ment_emb_size = 3 * bert_size + feature_size + morph_dim # RD: added morph size
         ante_emb_size = 3 * ment_emb_size + 4 * feature_size
         # mention scoring
         self.mention_scorer = Scorer(ment_emb_size, hidden_size, hidden_depth, self.dropout)
@@ -98,7 +106,7 @@ class ModelTask(nn.Module):
             self.bins.extend([i] * w)
         self.bins = torch.as_tensor(self.bins, dtype=torch.long, device=self.device)
 
-    def ment_embedding(self, bert_emb, ment_starts, ment_ends):
+    def ment_embedding(self, bert_emb, ment_starts, ment_ends, token_map, morph_map):
         # get representation for start and end of mention
         start_embs = bert_emb[ment_starts]
         end_embs = bert_emb[ment_ends]
@@ -125,9 +133,55 @@ class ModelTask(nn.Module):
         # calculate final head embedding as weighted sum
         head_embs = torch.matmul(ment_word_attn, bert_emb)
 
+        morph_embs = self.morph_embedding(ment_starts, ment_ends, token_map, morph_map)
+
         # combine different embeddings to single mention embedding
         # warning: different order than proposed in the paper
-        return torch.cat((start_embs, end_embs, width_embs, head_embs), dim=1), ment_dist
+        #return torch.cat((start_embs, end_embs, width_embs, head_embs), dim=1), ment_dist
+
+        return torch.cat((start_embs, end_embs, width_embs, head_embs, morph_embs), dim=1), ment_dist
+
+    def morph_embedding(self, ment_starts, ment_ends, token_map, morph_map):
+        ment_starts = ment_starts.tolist()
+        ment_ends = ment_ends.tolist()
+
+        pad_tensor = torch.zeros(64)
+
+        morph_feats = []
+        for i in range(0, len(ment_starts)):
+            men_morph_feats = []
+            for j in range(ment_starts[i], ment_ends[i]+1):
+                morph_feat_vector = morph_map[str(token_map[j])]
+                if len(morph_feat_vector) > 0:
+                    embds = self.morph_emb(torch.tensor(morph_feat_vector, dtype=torch.int))
+                    sum = torch.sum(embds, 0)
+                    men_morph_feats.append(sum)
+                else:
+                    men_morph_feats.append(pad_tensor)
+                #   embds = self.morph_emb(torch.tensor([0], dtype=torch.int))
+            out = self.transformer_encoder(torch.stack(men_morph_feats))
+            out = torch.mean(out, 0)
+            morph_feats.append(out)
+
+        morph_feats = torch.stack(morph_feats)
+        # morph_feats, mask = self.padding_tensor(morph_feats)
+        return morph_feats
+
+    # def padding_tensor(self, sequences):
+    #     """
+    #     :param sequences: list of tensors
+    #     :return:
+    #     """
+    #     num = len(sequences)
+    #     max_len = max([len(s) for s in sequences])
+    #     out_dims = (num, max_len, 50)
+    #     out_tensor = sequences[0][0].data.new(*out_dims).fill_(0)
+    #     mask = sequences[0][0].data.new(*out_dims).fill_(0)
+    #     for i, sequence in enumerate(sequences):
+    #         length = tensor.size(0)
+    #         out_tensor[i, :length] = tensor
+    #         mask[i, :length] = 1
+    #     return out_tensor, mask
 
     def prune_mentions(self, ment_starts, ment_ends, ment_scores, k):
         # get mention indices sorted by the mention score
@@ -250,9 +304,9 @@ class ModelTask(nn.Module):
         dummy_labels = ~labels.any(dim=1, keepdim=True)
         return torch.cat((dummy_labels, labels), dim=1)
 
-    def forward_fast(self, bert_emb, speaker_ids, cand_starts, cand_ends):
+    def forward_fast(self, bert_emb, speaker_ids, cand_starts, cand_ends, token_map, morph_map):
         # get candidate mentions and scores
-        cand_embs, cand_dist = self.ment_embedding(bert_emb, cand_starts.to(self.device), cand_ends.to(self.device))
+        cand_embs, cand_dist = self.ment_embedding(bert_emb, cand_starts.to(self.device), cand_ends.to(self.device), token_map, morph_map)
         cand_scores = self.mention_scorer(cand_embs).squeeze()
         # combine old mention scores and width score (bert-coref)
         width_scores = self.ment_width_scorer(self.ment_width_scorer_emb)
@@ -291,13 +345,13 @@ class ModelTask(nn.Module):
         ment_embs = f * attended_emb + (1 - f) * ment_embs
         return ment_embs, ante_scores
 
-    def forward(self, bert_emb, segm_len, genre_id, speaker_ids, gold_starts, gold_ends, cluster_ids, cand_starts, cand_ends):
+    def forward(self, bert_emb, segm_len, genre_id, speaker_ids, gold_starts, gold_ends, cluster_ids, cand_starts, cand_ends, token_map, morph_map):
         # create sentence mask to flatten tensors
         sent_num, max_segm_len = len(segm_len), max(segm_len)
         sent_mask = torch.arange(max_segm_len).view(1, -1).repeat(sent_num, 1) < torch.as_tensor(segm_len).view(-1, 1)
 
         # compute fast scores until next checkpoint
-        inputs = (bert_emb, speaker_ids, cand_starts, cand_ends)
+        inputs = (bert_emb, speaker_ids, cand_starts, cand_ends, token_map, morph_map)
         fast_scores, cand_scores, ment_embs = self.condCheckpoint(self.forward_fast, *inputs)
 
         # compute distance between mention and antecedent on segment level (bert-coref)

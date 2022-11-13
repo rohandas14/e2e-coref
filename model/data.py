@@ -76,10 +76,11 @@ class Dataset(data.Dataset):
         # cand-starts / cand-ends
         sent_map = doc['sent_map']
         token_map = doc['token_map']
+        morph_map = doc['morph_map']
         cand_starts, cand_ends = self.create_candidates(sent_map, token_map, segm_len)
 
         # return all necessary information for training and evaluation
-        return segms, segm_len, genre_id, speaker_ids, gold_starts, gold_ends, cluster_ids, cand_starts, cand_ends
+        return segms, segm_len, genre_id, speaker_ids, gold_starts, gold_ends, cluster_ids, cand_starts, cand_ends, token_map, morph_map
 
     def truncate(self, doc, max_segm_num):
         sents = doc['segments']
@@ -108,7 +109,8 @@ class Dataset(data.Dataset):
             'sent_map': doc['sent_map'][word_start:word_end],
             'token_map': doc['token_map'][word_start:word_end],
             'speakers': doc['speakers'][sentence_start:sentence_end],
-            'clusters': clusters
+            'clusters': clusters,
+            'morph_map': doc['morph_map']
         }
 
         # return truncated doc and offset
@@ -162,7 +164,7 @@ class Dataset(data.Dataset):
 class DataLoader(data.DataLoader):
 
     def __init__(self, dataset, **kwargs):
-        super().__init__(dataset, collate_fn=DataLoader.collate, batch_size=1, pin_memory=True, **kwargs)
+        super().__init__(dataset, collate_fn=DataLoader.collate, batch_size=100, pin_memory=True, **kwargs)
 
     @staticmethod
     def collate(batch):
