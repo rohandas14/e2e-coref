@@ -78,9 +78,35 @@ class Dataset(data.Dataset):
         token_map = doc['token_map']
         morph_map = doc['morph_map']
         cand_starts, cand_ends = self.create_candidates(sent_map, token_map, segm_len)
+        morph_feats = self.morph_feats(cand_starts, cand_ends, token_map, morph_map)
 
         # return all necessary information for training and evaluation
-        return segms, segm_len, genre_id, speaker_ids, gold_starts, gold_ends, cluster_ids, cand_starts, cand_ends, token_map, morph_map
+        return segms, segm_len, genre_id, speaker_ids, gold_starts, gold_ends, cluster_ids, cand_starts, cand_ends, morph_feats
+
+    def morph_feats(self, ment_starts, ment_ends, token_map, morph_map):
+        ment_starts = ment_starts.tolist()
+        ment_ends = ment_ends.tolist()
+
+        feat_vector_size = 186
+        pad_tensor = torch.zeros(64)
+
+        morph_feats = []
+        for i in range(0, len(ment_starts)):
+            men_morph_feats = []
+            for j in range(ment_starts[i], ment_ends[i] + 1):
+                sparse_vector = morph_map[str(token_map[j])]
+                feat_vector = torch.zeros(feat_vector_size)
+                if len(sparse_vector) > 0:
+                    for feat_idx in sparse_vector:
+                        feat_vector[feat_idx] = 1
+                men_morph_feats.append(feat_vector)
+            men_morph_feats = torch.stack(men_morph_feats)
+            pad_length = 30 - men_morph_feats.size(dim=0)
+            men_morph_feats = torch.nn.functional.pad(men_morph_feats, (0, 0, 0, pad_length), "constant", 0)
+            morph_feats.append(men_morph_feats)
+
+        morph_feats = torch.stack(morph_feats)
+        return morph_feats
 
     def truncate(self, doc, max_segm_num):
         sents = doc['segments']
@@ -164,7 +190,7 @@ class Dataset(data.Dataset):
 class DataLoader(data.DataLoader):
 
     def __init__(self, dataset, **kwargs):
-        super().__init__(dataset, collate_fn=DataLoader.collate, batch_size=100, pin_memory=True, **kwargs)
+        super().__init__(dataset, collate_fn=DataLoader.collate, batch_size=1, pin_memory=True, **kwargs)
 
     @staticmethod
     def collate(batch):

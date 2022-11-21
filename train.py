@@ -38,7 +38,7 @@ class Trainer:
         print(HOCONConverter.convert(self.config, 'hocon'))
 
         # wandb init
-        wandb.init(project="coref", entity="rohdas")
+        # wandb.init(project="coref", entity="rohdas")
 
         # initialize model and move to gpu if available
         model = Model(self.config, self.device1, self.device2, checkpointing)
@@ -77,11 +77,11 @@ class Trainer:
         # load latest checkpoint from path
         epoch = self.load_ckpt(model, optimizer_bert, optimizer_task, scheduler_bert, scheduler_task, scaler)
 
-        wandb.config = {
-            "lr_bert": lr_bert,
-            "lr_task": lr_task,
-            "epochs": self.config['epochs']
-        }
+        # wandb.config = {
+        #     "lr_bert": lr_bert,
+        #     "lr_task": lr_task,
+        #     "epochs": self.config['epochs']
+        # }
 
         # run indefinitely until keyboard interrupt
         for e in range(epoch, self.config['epochs']):
@@ -121,7 +121,7 @@ class Trainer:
             print(f'Epoch {e:03d} took: {epoch_time}\n', flush=True)
             epoch_loss = acc_loss/len(self.dataloader)
             print(f'Loss for Epoch {e:03d}: {epoch_loss}\n', flush=True)
-            wandb.log({"loss": epoch_loss})
+            # wandb.log({"loss": epoch_loss})
 
     def save_ckpt(self, epoch, model, optimizer_bert, optimizer_task, scheduler_bert, scheduler_task, scaler):
         path = self.path.joinpath(f'ckpt_epoch-{epoch:03d}.pt.tar')
