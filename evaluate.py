@@ -34,7 +34,7 @@ class Evaluator:
 
     def eval(self, ckpt_path, amp):
         # load checkpoint
-        ckpt = torch.load(ckpt_path)
+        ckpt = torch.load(ckpt_path, map_location=torch.device('cpu'))
         self.model.load_state_dict(ckpt['model'] if 'model' in ckpt else ckpt)
 
         # initialize mention evaluators
@@ -51,7 +51,6 @@ class Evaluator:
         coref_evaluator = metrics.CorefEvaluator()
 
         with torch.no_grad():
-            print(self.dataloader)
             for i, batch in enumerate(self.dataloader):
                 # collect data for evaluating batch
                 with torch.cuda.amp.autocast(enabled=amp):

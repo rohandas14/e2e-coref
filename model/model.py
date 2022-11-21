@@ -131,7 +131,7 @@ class ModelTask(nn.Module):
         # calculate final head embedding as weighted sum
         head_embs = torch.matmul(ment_word_attn, bert_emb)
 
-        morph_embs = self.morph_emb(morph_feats)
+        morph_embs = self.morph_emb(morph_feats.to(self.device))
         morph_embs = torch.mean(morph_embs, 1)
 
         # combine different embeddings to single mention embedding

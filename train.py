@@ -83,6 +83,10 @@ class Trainer:
         #     "epochs": self.config['epochs']
         # }
 
+        params_no = sum(param.numel() for param in model.bert_model.parameters() if param.requires_grad)
+        params_no += sum(param.numel() for param in model.task_model.parameters() if param.requires_grad)
+        print("No. of trainable params: " + str(params_no), flush=True)
+
         # run indefinitely until keyboard interrupt
         for e in range(epoch, self.config['epochs']):
             init_epoch_time = time.time()
