@@ -38,7 +38,7 @@ class Trainer:
         print(HOCONConverter.convert(self.config, 'hocon'))
 
         # wandb init
-        wandb.init(project="coref", entity="rohdas")
+        #wandb.init(project="coref", entity="rohdas")
 
         # initialize model and move to gpu if available
         model = Model(self.config, self.device1, self.device2, checkpointing)
@@ -77,11 +77,15 @@ class Trainer:
         # load latest checkpoint from path
         epoch = self.load_ckpt(model, optimizer_bert, optimizer_task, scheduler_bert, scheduler_task, scaler)
 
-        wandb.config = {
-            "lr_bert": lr_bert,
-            "lr_task": lr_task,
-            "epochs": self.config['epochs']
-        }
+        # wandb.config = {
+        #     "lr_bert": lr_bert,
+        #     "lr_task": lr_task,
+        #     "epochs": self.config['epochs']
+        # }
+
+        params_no = sum(param.numel() for param in model.bert_model.parameters() if param.requires_grad)
+        params_no += sum(param.numel() for param in model.task_model.parameters() if param.requires_grad)
+        print("No. of trainable params: " + str(params_no), flush=True)
 
         # run indefinitely until keyboard interrupt
         for e in range(epoch, self.config['epochs']):

@@ -58,12 +58,12 @@ class ModelTask(nn.Module):
         self.span_head = nn.Linear(bert_size, 1)
 
         # morphology embedding
-        morph_feature_num = 186
-        morph_dim = 64
-        self.morph_emb = nn.Embedding(morph_feature_num, morph_dim, padding_idx=0)
-        self.morph_emb.weight.data[0].fill_(0) # RD: Doesn't work
-        encoder_layer = nn.TransformerEncoderLayer(d_model=morph_dim, nhead=4)
-        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=1)
+        # morph_feature_num = 186
+        # morph_dim = 64
+        # self.morph_emb = nn.Embedding(morph_feature_num, morph_dim, padding_idx=0)
+        # self.morph_emb.weight.data[0].fill_(0) # RD: Doesn't work
+        # encoder_layer = nn.TransformerEncoderLayer(d_model=morph_dim, nhead=4)
+        # self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=1)
 
         # feature embeddings
         bin_width = self.config['bin_widths']
@@ -77,7 +77,7 @@ class ModelTask(nn.Module):
         # scorer for mentions and antecedents
         hidden_size = self.config['hidden_size']
         hidden_depth = self.config['hidden_depth']
-        ment_emb_size = 3 * bert_size + feature_size + morph_dim # RD: added morph size
+        ment_emb_size = 3 * bert_size + feature_size #+ morph_dim # RD: added morph size
         ante_emb_size = 3 * ment_emb_size + 4 * feature_size
         # mention scoring
         self.mention_scorer = Scorer(ment_emb_size, hidden_size, hidden_depth, self.dropout)
@@ -133,13 +133,13 @@ class ModelTask(nn.Module):
         # calculate final head embedding as weighted sum
         head_embs = torch.matmul(ment_word_attn, bert_emb)
 
-        morph_embs = self.morph_embedding(ment_starts, ment_ends, token_map, morph_map)
+        # morph_embs = self.morph_embedding(ment_starts, ment_ends, token_map, morph_map)
 
         # combine different embeddings to single mention embedding
         # warning: different order than proposed in the paper
-        # return torch.cat((start_embs, end_embs, width_embs, head_embs), dim=1), ment_dist
+        return torch.cat((start_embs, end_embs, width_embs, head_embs), dim=1), ment_dist
 
-        return torch.cat((start_embs, end_embs, width_embs, head_embs, morph_embs), dim=1), ment_dist
+        # return torch.cat((start_embs, end_embs, width_embs, head_embs, morph_embs), dim=1), ment_dist
 
     def morph_embedding(self, ment_starts, ment_ends, token_map, morph_map):
         ment_starts = ment_starts.tolist()
