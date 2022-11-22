@@ -83,24 +83,19 @@ class Dataset(data.Dataset):
         if "cand_starts" in doc and "cand_ends" in doc:
             cand_starts = doc["cand_starts"]
             cand_ends = doc["cand_ends"]
-            print("Candidate starts and ends already exist for doc key: " + str(doc['doc_key']), flush=True)
         else:
             cand_starts, cand_ends = self.create_candidates(sent_map, token_map, segm_len)
             self.data[item]["cand_starts"] = cand_starts
             self.data[item]["cand_ends"] = cand_ends
-            print("Generating candidate starts and ends for doc key: " + doc['doc_key'], flush=True)
 
         if "morph_feats" in doc:
             morph_feats = doc["morph_feats"]
-            print("Morphology feature matrix already exist for doc ket: " + doc['doc_key'], flush=True)
         else:
             morph_feats = self.morph_feats(cand_starts, cand_ends, token_map, morph_map)
             self.data[item]["morph_feats"] = morph_feats
-            print("Generating morphology feature matrix for doc key: " + doc['doc_key'], flush=True)
 
         # return all necessary information for training and evaluation
         return segms, segm_len, genre_id, speaker_ids, gold_starts, gold_ends, cluster_ids, cand_starts, cand_ends, morph_feats
-
 
     def morph_feats(self, ment_starts, ment_ends, token_map, morph_map):
         ment_starts = ment_starts.tolist()
@@ -172,10 +167,10 @@ class Dataset(data.Dataset):
         offset = 0
         for s in sent_len:
             for i in range(s):
-                width = min(max_ment_width, s-i)
+                width = min(max_ment_width, s - i)
                 start = i + offset
                 cand_starts.extend([start] * width)
-                cand_ends.extend(range(start, start+width))
+                cand_ends.extend(range(start, start + width))
             offset += s
 
         # candidate boundaries as tensors
@@ -186,7 +181,7 @@ class Dataset(data.Dataset):
         token_map[0] = -1
         token_map[-1] = -1
         for sl in np.cumsum(segm_len[:-1]):
-            token_map[sl-1:sl+1] = [-1, -1]
+            token_map[sl - 1:sl + 1] = [-1, -1]
         tkn_map = torch.tensor(token_map)
 
         # create tensor with possible starts
