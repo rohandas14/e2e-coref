@@ -7,7 +7,6 @@ import itertools
 import numpy as np
 from pathlib import Path
 from torch.utils import data
-import time
 
 
 class Dataset(data.Dataset):
@@ -80,48 +79,27 @@ class Dataset(data.Dataset):
         sent_map = doc['sent_map']
         token_map = doc['token_map']
         morph_map = doc['morph_map']
-        cand_starts, cand_ends = self.create_candidates(sent_map, token_map, segm_len)
 
-        start = time.time()
-        print("Generating morph feats.", flush=True)
-        print("No. of mentions:" + str(cand_starts.size()[0]), flush=True)
-        morph_feats = self.morph_feats(cand_starts, cand_ends, token_map, morph_map)
-        end = time.time()
-        print("Time to generate morph feats:" + str(end - start), flush=True)
-        #morph_feats = (torch.rand(size=(cand_starts.size()[0], 30, 186)) < 0.25).float()
+        if "cand_starts" in doc and "cand_ends" in doc:
+            cand_starts = doc["cand_starts"]
+            cand_ends = doc["cand_ends"]
+            print("Candidate starts and ends already exist for doc key: " + str(doc['doc_key']), flush=True)
+        else:
+            cand_starts, cand_ends = self.create_candidates(sent_map, token_map, segm_len)
+            self.data[item]["cand_starts"] = cand_starts
+            self.data[item]["cand_ends"] = cand_ends
+            print("Generating candidate starts and ends for doc key: " + doc['doc_key'], flush=True)
+
+        if "morph_feats" in doc:
+            morph_feats = doc["morph_feats"]
+            print("Morphology feature matrix already exist for doc ket: " + doc['doc_key'], flush=True)
+        else:
+            morph_feats = self.morph_feats(cand_starts, cand_ends, token_map, morph_map)
+            self.data[item]["morph_feats"] = morph_feats
+            print("Generating morphology feature matrix for doc key: " + doc['doc_key'], flush=True)
+
         # return all necessary information for training and evaluation
         return segms, segm_len, genre_id, speaker_ids, gold_starts, gold_ends, cluster_ids, cand_starts, cand_ends, morph_feats
-
-    def get_feats(self, ment_starts, ment_ends, token_map, morph_map):
-        ment_starts = ment_starts.tolist()
-        ment_ends = ment_ends.tolist()
-        morph_feats = []
-
-        with Pool() as pool:
-            args = [(i, ment_starts, ment_ends, token_map, morph_map) for i in range(0, len(ment_starts))]
-
-            for result in pool.starmap(self.get_feats_task, args):
-                morph_feats.append(result)
-
-        morph_feats = torch.stack(morph_feats)
-        return morph_feats
-
-    def get_feats_task(self, idx, ment_starts, ment_ends, token_map, morph_map):
-        feat_vector_size = 186
-        men_morph_feats = []
-
-        for j in range(ment_starts[idx], ment_ends[idx] + 1):
-            sparse_vector = morph_map[str(token_map[j])]
-            feat_vector = torch.zeros(feat_vector_size)
-            if len(sparse_vector) > 0:
-                for feat_idx in sparse_vector:
-                    feat_vector[feat_idx] = 1
-            men_morph_feats.append(feat_vector)
-        men_morph_feats = torch.stack(men_morph_feats)
-        pad_length = 30 - men_morph_feats.size(dim=0)
-        men_morph_feats = torch.nn.functional.pad(men_morph_feats, (0, 0, 0, pad_length), "constant", 0)
-
-        return men_morph_feats
 
 
     def morph_feats(self, ment_starts, ment_ends, token_map, morph_map):
