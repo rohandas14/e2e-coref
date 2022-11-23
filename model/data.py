@@ -5,6 +5,7 @@ import json
 import random
 import itertools
 import numpy as np
+import ud_features
 from pathlib import Path
 from torch.utils import data
 
@@ -100,9 +101,7 @@ class Dataset(data.Dataset):
     def morph_feats(self, ment_starts, ment_ends, token_map, morph_map):
         ment_starts = ment_starts.tolist()
         ment_ends = ment_ends.tolist()
-
-        feat_vector_size = 186
-        pad_tensor = torch.zeros(64)
+        feat_vector_size = ud_features.get_ud_features_length()
 
         morph_feats = []
         for i in range(0, len(ment_starts)):
@@ -115,7 +114,7 @@ class Dataset(data.Dataset):
                         feat_vector[feat_idx] = 1
                 men_morph_feats.append(feat_vector)
             men_morph_feats = torch.stack(men_morph_feats)
-            pad_length = 30 - men_morph_feats.size(dim=0)
+            pad_length = self.config['max_ment_width'] - men_morph_feats.size(dim=0)
             men_morph_feats = torch.nn.functional.pad(men_morph_feats, (0, 0, 0, pad_length), "constant", 0)
             morph_feats.append(men_morph_feats)
 

@@ -1,10 +1,11 @@
 import math
 import torch
 import torch.nn as nn
+import ud_features
+import time
 from torch.functional import F
 from torch.utils.checkpoint import checkpoint
 from transformers import AutoConfig, AutoModel, AutoTokenizer
-
 from model.modules import Scorer, init_weights, truncate_normal
 
 
@@ -58,8 +59,7 @@ class ModelTask(nn.Module):
         self.span_head = nn.Linear(bert_size, 1)
 
         # morphology embedding
-        self.morph_feature_num = 186
-        self.max_men_len = 30
+        self.morph_feature_num = ud_features.get_ud_features_length()
         self.morph_dim = 64
         self.morph_emb = nn.Linear(self.morph_feature_num, self.morph_dim)
 
@@ -131,14 +131,21 @@ class ModelTask(nn.Module):
         # calculate final head embedding as weighted sum
         head_embs = torch.matmul(ment_word_attn, bert_emb)
 
+        start = time.time()
         morph_embs = self.morph_emb(morph_feats.to(self.device))
-        morph_embs = torch.mean(morph_embs, 1)
-
+        mention_morph_sum = morph_embs.sum(dim=1)
+        divisors = [(self.max_width - (morph_embs[ment].sum(dim=1) == 0).nonzero().size()[0]) for ment in range(morph_embs.size()[0])]
+        # if divisors = 0, change it to 1, to avoid nans
+        divisors = [div + 1 if div == 0 else div for div in divisors]
+        avg_morph_embs = [torch.div(mention_morph_sum[ment], divisors[ment]) for ment in range(len(divisors))]
+        avg_morph_embs = torch.stack(avg_morph_embs)
+        end = time.time()
+        print("Time: " + str(end - start), flush=True)
         # combine different embeddings to single mention embedding
         # warning: different order than proposed in the paper
         # return torch.cat((start_embs, end_embs, width_embs, head_embs), dim=1), ment_dist
 
-        return torch.cat((start_embs, end_embs, width_embs, head_embs, morph_embs), dim=1), ment_dist
+        return torch.cat((start_embs, end_embs, width_embs, head_embs, avg_morph_embs), dim=1), ment_dist
 
     def prune_mentions(self, ment_starts, ment_ends, ment_scores, k):
         # get mention indices sorted by the mention score

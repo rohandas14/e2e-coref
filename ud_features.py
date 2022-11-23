@@ -1,4 +1,21 @@
-features_list = ["PronType=Art",
+features_list = ["ADJ",
+                 "ADV",
+                 "INTJ",
+                 "NOUN",
+                 "PROPN",
+                 "VERB",
+                 "ADP",
+                 "AUX",
+                 "CONJ",
+                 "DET",
+                 "NUM",
+                 "PART",
+                 "PRON",
+                 "SCONJ",
+                 "PUNCT",
+                 "SYM",
+                 "X",
+                 "PronType=Art",
                  "PronType=Dem",
                  "PronType=Emp",
                  "PronType=Exc",
@@ -148,6 +165,10 @@ features_list = ["PronType=Art",
                  "Animacy=Inan",
                  "Animacy=Nhum",
                  "Variant=Short",
+                 "AdpType=Circ",
+                 "AdpType=Post",
+                 "AdpType=Prep",
+                 "AdpType=Voc",
                  "NounClass=Bantu1",
                  "NounClass=Bantu2",
                  "NounClass=Bantu3",
@@ -184,6 +205,7 @@ features_list = ["PronType=Art",
                  "NounClass=Wol11",
                  "NounClass=Wol12"]
 
+
 def get_ud_features_dict():
     features_dict = {}
     idx = 1;
@@ -195,3 +217,7 @@ def get_ud_features_dict():
     assert len(features_list) == len(features_dict)
 
     return features_dict
+
+
+def get_ud_features_length():
+    return len(get_ud_features_dict())

@@ -294,10 +294,13 @@ def get_document(doc_key, language, seg_len, tokenizer, udapi_document=None):
         word_feats = node.feats._string.split('|') if node.feats else []
         word_feats_onehot = []
         ud_features_dict = ud_features.get_ud_features_dict()
+        if node.upos is not None or node.upos != "":
+            word_feats_onehot.append((ud_features_dict[node.upos]))
         for feat in word_feats:
             try:
                 word_feats_onehot.append(ud_features_dict[feat])
             except:
+                print("No feat found: " + feat, flush=True)
                 continue
         document_state.morph_features[word_idx] = word_feats_onehot
         subtokens = tokenizer.tokenize(word)
