@@ -103,7 +103,7 @@ class ModelTask(nn.Module):
             self.bins.extend([i] * w)
         self.bins = torch.as_tensor(self.bins, dtype=torch.long, device=self.device)
 
-    def ment_embedding(self, bert_emb, ment_starts, ment_ends, morph_feats):
+    def ment_embedding(self, bert_emb, ment_starts, ment_ends, morph_feats, morph_feats_mask):
         # get representation for start and end of mention
         start_embs = bert_emb[ment_starts]
         end_embs = bert_emb[ment_ends]
@@ -130,13 +130,11 @@ class ModelTask(nn.Module):
         # calculate final head embedding as weighted sum
         head_embs = torch.matmul(ment_word_attn, bert_emb)
 
+        # calculate morphology representation
         morph_embs = self.morph_emb(morph_feats.to(self.device))
-        mention_morph_sum = morph_embs.sum(dim=1)
-        divisors = [(self.max_width - (morph_embs[ment].sum(dim=1) == 0).nonzero().size()[0]) for ment in range(morph_embs.size()[0])]
-        # if divisors = 0, change it to 1, to avoid nans
-        divisors = [div + 1 if div == 0 else div for div in divisors]
-        avg_morph_embs = [torch.div(mention_morph_sum[ment], divisors[ment]) for ment in range(len(divisors))]
-        avg_morph_embs = torch.stack(avg_morph_embs)
+        morph_embs_sum = morph_embs.sum(dim=1)
+        men_token_count = morph_feats_mask.sum(dim=1).unsqueeze(dim=1)
+        avg_morph_embs = torch.div(morph_embs_sum, men_token_count)
 
         # combine different embeddings to single mention embedding
         # warning: different order than proposed in the paper
@@ -265,9 +263,9 @@ class ModelTask(nn.Module):
         dummy_labels = ~labels.any(dim=1, keepdim=True)
         return torch.cat((dummy_labels, labels), dim=1)
 
-    def forward_fast(self, bert_emb, speaker_ids, cand_starts, cand_ends, morph_feats):
+    def forward_fast(self, bert_emb, speaker_ids, cand_starts, cand_ends, morph_feats, morph_feats_mask):
         # get candidate mentions and scores
-        cand_embs, cand_dist = self.ment_embedding(bert_emb, cand_starts.to(self.device), cand_ends.to(self.device), morph_feats)
+        cand_embs, cand_dist = self.ment_embedding(bert_emb, cand_starts.to(self.device), cand_ends.to(self.device), morph_feats, morph_feats_mask)
         cand_scores = self.mention_scorer(cand_embs).squeeze()
         # combine old mention scores and width score (bert-coref)
         width_scores = self.ment_width_scorer(self.ment_width_scorer_emb)
@@ -306,13 +304,13 @@ class ModelTask(nn.Module):
         ment_embs = f * attended_emb + (1 - f) * ment_embs
         return ment_embs, ante_scores
 
-    def forward(self, bert_emb, segm_len, genre_id, speaker_ids, gold_starts, gold_ends, cluster_ids, cand_starts, cand_ends, morph_feats):
+    def forward(self, bert_emb, segm_len, genre_id, speaker_ids, gold_starts, gold_ends, cluster_ids, cand_starts, cand_ends, morph_feats, morph_feats_mask):
         # create sentence mask to flatten tensors
         sent_num, max_segm_len = len(segm_len), max(segm_len)
         sent_mask = torch.arange(max_segm_len).view(1, -1).repeat(sent_num, 1) < torch.as_tensor(segm_len).view(-1, 1)
 
         # compute fast scores until next checkpoint
-        inputs = (bert_emb, speaker_ids, cand_starts, cand_ends, morph_feats)
+        inputs = (bert_emb, speaker_ids, cand_starts, cand_ends, morph_feats, morph_feats_mask)
         fast_scores, cand_scores, ment_embs = self.condCheckpoint(self.forward_fast, *inputs)
 
         # compute distance between mention and antecedent on segment level (bert-coref)
