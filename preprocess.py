@@ -295,7 +295,10 @@ def get_document(doc_key, language, seg_len, tokenizer, udapi_document=None):
         word_feats_onehot = []
         ud_features_dict = ud_features.get_ud_features_dict()
         if node.upos is not None or node.upos != "":
-            word_feats_onehot.append((ud_features_dict[node.upos]))
+            if node.upos in ud_features_dict:
+                word_feats_onehot.append((ud_features_dict[node.upos]))
+            else:
+                print("No POS found with key: " + node.upos, flush=True)
         for feat in word_feats:
             try:
                 word_feats_onehot.append(ud_features_dict[feat])
