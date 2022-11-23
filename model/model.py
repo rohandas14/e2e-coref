@@ -2,7 +2,6 @@ import math
 import torch
 import torch.nn as nn
 import ud_features
-import time
 from torch.functional import F
 from torch.utils.checkpoint import checkpoint
 from transformers import AutoConfig, AutoModel, AutoTokenizer
@@ -131,7 +130,6 @@ class ModelTask(nn.Module):
         # calculate final head embedding as weighted sum
         head_embs = torch.matmul(ment_word_attn, bert_emb)
 
-        start = time.time()
         morph_embs = self.morph_emb(morph_feats.to(self.device))
         mention_morph_sum = morph_embs.sum(dim=1)
         divisors = [(self.max_width - (morph_embs[ment].sum(dim=1) == 0).nonzero().size()[0]) for ment in range(morph_embs.size()[0])]
@@ -139,8 +137,7 @@ class ModelTask(nn.Module):
         divisors = [div + 1 if div == 0 else div for div in divisors]
         avg_morph_embs = [torch.div(mention_morph_sum[ment], divisors[ment]) for ment in range(len(divisors))]
         avg_morph_embs = torch.stack(avg_morph_embs)
-        end = time.time()
-        print("Time: " + str(end - start), flush=True)
+
         # combine different embeddings to single mention embedding
         # warning: different order than proposed in the paper
         # return torch.cat((start_embs, end_embs, width_embs, head_embs), dim=1), ment_dist
