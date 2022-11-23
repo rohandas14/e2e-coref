@@ -133,7 +133,7 @@ class ModelTask(nn.Module):
         # calculate morphology representation
         morph_embs = self.morph_emb(morph_feats.to(self.device))
         morph_embs_sum = morph_embs.sum(dim=1)
-        men_token_count = morph_feats_mask.sum(dim=1).unsqueeze(dim=1)
+        men_token_count = morph_feats_mask.sum(dim=1).unsqueeze(dim=1).to(self.device)
         avg_morph_embs = torch.div(morph_embs_sum, men_token_count)
 
         # combine different embeddings to single mention embedding
