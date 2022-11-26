@@ -117,17 +117,17 @@ class Dataset(data.Dataset):
                     for feat_idx in sparse_vector:
                         feat_vector[feat_idx] = 1
                 men_morph_feats.append(feat_vector)
-                men_mask.append(1)
+                men_mask.append(0)
             men_morph_feats = torch.stack(men_morph_feats)
             men_mask = torch.IntTensor(men_mask)
             pad_length = self.config['max_ment_width'] - men_morph_feats.size(dim=0)
             men_morph_feats = torch.nn.functional.pad(men_morph_feats, (0, 0, 0, pad_length), "constant", 0)
-            men_mask = torch.nn.functional.pad(men_mask, (0, pad_length), "constant", 0)
+            men_mask = torch.nn.functional.pad(men_mask, (0, pad_length), "constant", 1)
             morph_feats.append(men_morph_feats)
             morph_feats_mask.append(men_mask)
 
         morph_feats = torch.stack(morph_feats)
-        morph_feats_mask = torch.stack(morph_feats_mask)
+        morph_feats_mask = torch.stack(morph_feats_mask).type(torch.bool)
         return morph_feats, morph_feats_mask
 
     def truncate(self, doc, max_segm_num):

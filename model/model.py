@@ -59,8 +59,12 @@ class ModelTask(nn.Module):
 
         # morphology embedding
         self.morph_feature_num = ud_features.get_ud_features_length()
-        self.morph_dim = 64
+        self.morph_dim = self.config['morph_dim']
         self.morph_emb = nn.Linear(self.morph_feature_num, self.morph_dim)
+        encoder_layer = nn.TransformerEncoderLayer(d_model=self.morph_dim, nhead=4)
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=2)
+        # self.transformer = nn.Transformer(d_model=self.morph_dim, nhead=4, num_encoder_layers=2, num_decoder_layers=0,
+        #                                   dim_feedforward=1024, batch_first=True)
 
         # feature embeddings
         bin_width = self.config['bin_widths']
@@ -132,15 +136,16 @@ class ModelTask(nn.Module):
 
         # calculate morphology representation
         morph_embs = self.morph_emb(morph_feats.to(self.device))
-        morph_embs_sum = morph_embs.sum(dim=1)
-        men_token_count = morph_feats_mask.sum(dim=1).unsqueeze(dim=1)
-        avg_morph_embs = torch.div(morph_embs_sum, men_token_count)
+        morph_embs_size = morph_embs.size()
+        morph_embs = morph_embs.reshape(morph_embs_size[1], morph_embs_size[0], morph_embs_size[2])
+        morph_embs = self.transformer_encoder(morph_embs, src_key_padding_mask=morph_feats_mask)
+        morph_embs = morph_embs.reshape(morph_embs_size)
+        morph_embs = torch.mean(morph_embs, 1)
 
         # combine different embeddings to single mention embedding
         # warning: different order than proposed in the paper
-        # return torch.cat((start_embs, end_embs, width_embs, head_embs), dim=1), ment_dist
 
-        return torch.cat((start_embs, end_embs, width_embs, head_embs, avg_morph_embs), dim=1), ment_dist
+        return torch.cat((start_embs, end_embs, width_embs, head_embs, morph_embs), dim=1), ment_dist
 
     def prune_mentions(self, ment_starts, ment_ends, ment_scores, k):
         # get mention indices sorted by the mention score
