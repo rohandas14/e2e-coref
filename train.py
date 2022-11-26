@@ -38,7 +38,7 @@ class Trainer:
         print(HOCONConverter.convert(self.config, 'hocon'))
 
         # wandb init
-        # wandb.init(project="coref", entity="rohdas")
+        wandb.init(project="coref", entity="rohdas")
 
         # initialize model and move to gpu if available
         model = Model(self.config, self.device1, self.device2, checkpointing)
@@ -77,11 +77,11 @@ class Trainer:
         # load latest checkpoint from path
         epoch = self.load_ckpt(model, optimizer_bert, optimizer_task, scheduler_bert, scheduler_task, scaler)
 
-        # wandb.config = {
-        #     "lr_bert": lr_bert,
-        #     "lr_task": lr_task,
-        #     "epochs": self.config['epochs']
-        # }
+        wandb.config = {
+            "lr_bert": lr_bert,
+            "lr_task": lr_task,
+            "epochs": self.config['epochs']
+        }
 
         params_no = sum(param.numel() for param in model.bert_model.parameters() if param.requires_grad)
         params_no += sum(param.numel() for param in model.task_model.parameters() if param.requires_grad)
@@ -111,13 +111,13 @@ class Trainer:
                 scaler.update()
                 scheduler_bert.step()
                 scheduler_task.step()
-                if (i+1) % 100 == 0:
+                if (i+1) % self.config['log_after'] == 0:
                     print(f'Batch {i+1:04d} of {len(self.dataloader)}', flush=True)
                     # print(f'Loss = {loss}', flush=True)
                 acc_loss += loss    
 
             # create a checkpoint every nth epoch or if last epoch
-            n = 50
+            n = self.config['ckpt_interval']
             if (e+1) % n == 0 or (e+1) == self.config['epochs']:
                 self.save_ckpt(e, model, optimizer_bert, optimizer_task, scheduler_bert, scheduler_task, scaler)
             epoch_time = time.time() - init_epoch_time
@@ -125,7 +125,7 @@ class Trainer:
             print(f'Epoch {e:03d} took: {epoch_time}\n', flush=True)
             epoch_loss = acc_loss/len(self.dataloader)
             print(f'Loss for Epoch {e:03d}: {epoch_loss}\n', flush=True)
-            # wandb.log({"loss": epoch_loss})
+            wandb.log({"loss": epoch_loss})
 
     def save_ckpt(self, epoch, model, optimizer_bert, optimizer_task, scheduler_bert, scheduler_task, scaler):
         path = self.path.joinpath(f'ckpt_epoch-{epoch:03d}.pt.tar')

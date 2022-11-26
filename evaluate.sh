@@ -7,7 +7,7 @@
 #SBATCH --time=01:00:00
 #SBATCH --partition=blanca-kann
 #SBATCH --gres=gpu:1
-#SBATCH --mem-per-cpu=4G
+#SBATCH --mem=150G
 #SBATCH --output=logs/coref.%j.log
 
 module load anaconda
@@ -29,4 +29,4 @@ export HF_DATASETS_CACHE="$SLURM_SCRATCH/cache/HF/datasets"
 
 # python3 evaluate.py -c multilingual-bert-base-polish -p 'multilingual-bert-base-fp32/morph/polish-sum/ckpt_epoch-059.pt.tar'
 
-python3 evaluate.py -c multilingual-bert-base-russian -p 'multilingual-bert-base-fp32/morph/russian/ckpt_epoch-299.pt.tar'
+python3 evaluate.py -c multilingual-bert-base-polish -p 'multilingual-bert-base-fp32/exp1/polish/ckpt_epoch-059.pt.tar'
