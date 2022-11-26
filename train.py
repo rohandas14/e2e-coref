@@ -111,13 +111,13 @@ class Trainer:
                 scaler.update()
                 scheduler_bert.step()
                 scheduler_task.step()
-                if (i+1) % 100 == 0:
+                if (i+1) % self.config['log_after'] == 0:
                     print(f'Batch {i+1:04d} of {len(self.dataloader)}', flush=True)
                     # print(f'Loss = {loss}', flush=True)
                 acc_loss += loss    
 
             # create a checkpoint every nth epoch or if last epoch
-            n = 50
+            n = self.config['ckpt_interval']
             if (e+1) % n == 0 or (e+1) == self.config['epochs']:
                 self.save_ckpt(e, model, optimizer_bert, optimizer_task, scheduler_bert, scheduler_task, scaler)
             epoch_time = time.time() - init_epoch_time

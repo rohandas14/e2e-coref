@@ -138,7 +138,7 @@ class ModelTask(nn.Module):
         morph_embs = self.morph_emb(morph_feats.to(self.device))
         morph_embs_size = morph_embs.size()
         morph_embs = morph_embs.reshape(morph_embs_size[1], morph_embs_size[0], morph_embs_size[2])
-        morph_embs = self.transformer_encoder(morph_embs, src_key_padding_mask=morph_feats_mask)
+        morph_embs = self.transformer_encoder(morph_embs, src_key_padding_mask=morph_feats_mask.to(self.device))
         morph_embs = morph_embs.reshape(morph_embs_size)
         morph_embs = torch.mean(morph_embs, 1)
 
