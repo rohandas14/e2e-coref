@@ -10,7 +10,7 @@ from transformers import AdamW, get_linear_schedule_with_warmup
 from model.data import Dataset, DataLoader
 from model.model import Model
 
-from transformers.debug_utils import DebugUnderflowOverflow
+import torch.nn as nn
 
 
 class Trainer:
@@ -18,9 +18,10 @@ class Trainer:
     def __init__(self, conf, gpu, split):
         self.config = ConfigFactory.parse_file('./coref.conf')[conf]
         # configure devices (cpu or up to two sequential gpus)
-        use_cuda = gpu and torch.cuda.is_available()
-        self.device1 = torch.device('cuda:0' if use_cuda else 'cpu')
-        self.device2 = torch.device('cuda:1' if use_cuda else 'cpu')
+        self.use_cuda = gpu and torch.cuda.is_available()
+        # self.device = torch.device("cuda" if self.use_cuda else "cpu") # RD
+        self.device1 = torch.device('cuda:0' if self.use_cuda else 'cpu')
+        self.device2 = torch.device('cuda:1' if self.use_cuda else 'cpu')
         self.device2 = self.device2 if split else self.device1
         # load dataset with training data
         self.dataset = Dataset(self.config, training=True)
@@ -29,7 +30,8 @@ class Trainer:
     def train(self, name, amp=False, checkpointing=False):
         # Print infos to console
         print(f"### Start Training ###")
-        print(f'running on: {self.device1} {self.device2}')
+        print(f'running on: {self.device1} {self.device2}') # RD
+        # print(f'running on: {self.device}') # RD
         print(f'running for: {self.config["epochs"]} epochs')
         print(f'number of batches: {len(self.dataloader)}')
         print(f'saving ckpts to: {name}\n')
@@ -41,10 +43,16 @@ class Trainer:
         # wandb.init(project="coref", entity="rohdas")
 
         # initialize model and move to gpu if available
-        model = Model(self.config, self.device1, self.device2, checkpointing)
-        model.bert_model.to(self.device1)
-        model.task_model.to(self.device2)
-        # debug_overflow = DebugUnderflowOverflow(model)
+        model = Model(self.config, self.device1, self.device2, checkpointing) # RD
+        model.bert_model.to(self.device1) # RD
+        model.task_model.to(self.device2) # RD
+        # model = Model(self.config, self.device, checkpointing) # RD
+        # if self.use_cuda: # RD
+        #     model.bert_model = nn.DataParallel(model.bert_model, device_ids = [0]) # RD
+        # model.bert_model.to(self.device) # RD
+        # if self.use_cuda: # RD
+        #     model.task_model = nn.DataParallel(model.task_model, device_ids = [1]) # RD
+        # model.task_model.to(self.device) # RD
         model.train()
 
         # define loss and optimizer

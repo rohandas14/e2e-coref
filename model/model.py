@@ -10,10 +10,15 @@ from model.modules import Scorer, init_weights, truncate_normal
 
 class Model(nn.Module):
 
-    def __init__(self, config, device1, device2, checkpointing=False):
-        super().__init__()
-        self.bert_model = ModelBert(config, device1, checkpointing)
-        self.task_model = ModelTask(config, device2, checkpointing)
+    def __init__(self, config, device1, device2, checkpointing=False): # RD
+        super().__init__() # RD
+        self.bert_model = ModelBert(config, device1, checkpointing) # RD
+        self.task_model = ModelTask(config, device2, checkpointing) # RD
+
+    # def __init__(self, config, device, checkpointing=False): # RD
+    #     super().__init__() # RD
+    #     self.bert_model = ModelBert(config, device, checkpointing) # RD
+    #     self.task_model = ModelTask(config, device, checkpointing) # RD
 
     def forward(self, sents, *args):
         bert_embs = self.bert_model(sents)
@@ -62,7 +67,7 @@ class ModelTask(nn.Module):
         self.morph_dim = self.config['morph_dim']
         self.morph_emb = nn.Linear(self.morph_feature_num, self.morph_dim)
         encoder_layer = nn.TransformerEncoderLayer(d_model=self.morph_dim, nhead=4)
-        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=2)
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=1)
         # self.transformer = nn.Transformer(d_model=self.morph_dim, nhead=4, num_encoder_layers=2, num_decoder_layers=0,
         #                                   dim_feedforward=1024, batch_first=True)
 
@@ -109,8 +114,9 @@ class ModelTask(nn.Module):
 
     def ment_embedding(self, bert_emb, ment_starts, ment_ends, morph_feats, morph_feats_mask):
         # get representation for start and end of mention
-        start_embs = bert_emb[ment_starts]
-        end_embs = bert_emb[ment_ends]
+        start_embs = bert_emb[ment_starts].to(self.device)
+        end_embs = bert_emb[ment_ends].to(self.device)
+        bert_emb = bert_emb.to(self.device)
 
         # calculate distance between mentions
         ment_dist = ment_ends - ment_starts
@@ -312,7 +318,7 @@ class ModelTask(nn.Module):
     def forward(self, bert_emb, segm_len, genre_id, speaker_ids, gold_starts, gold_ends, cluster_ids, cand_starts, cand_ends, morph_feats, morph_feats_mask):
         # create sentence mask to flatten tensors
         sent_num, max_segm_len = len(segm_len), max(segm_len)
-        sent_mask = torch.arange(max_segm_len).view(1, -1).repeat(sent_num, 1) < torch.as_tensor(segm_len).view(-1, 1)
+        sent_mask = torch.arange(max_segm_len).view(1, -1).to(self.device).repeat(sent_num, 1) < torch.as_tensor(segm_len).view(-1, 1).to(self.device)
 
         # compute fast scores until next checkpoint
         inputs = (bert_emb, speaker_ids, cand_starts, cand_ends, morph_feats, morph_feats_mask)
