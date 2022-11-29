@@ -111,16 +111,17 @@ class Dataset(data.Dataset):
             men_morph_feats = []
             men_mask = []
             for j in range(ment_starts[i], ment_ends[i] + 1):
-                try:
-                    sparse_vector = morph_map[str(token_map[j])]
-                except:
-                    print("i: " + str(i), flush=True)
-                    print("j: " + str(j), flush=True)
-                    print("token-map: " + str(token_map[j]), flush=True)
-                feat_vector = torch.zeros(feat_vector_size)
-                if len(sparse_vector) > 0:
-                    for feat_idx in sparse_vector:
-                        feat_vector[feat_idx] = 1
+                # try:
+                #     sparse_vector = morph_map[str(token_map[j])]
+                # except:
+                #     print("i: " + str(i), flush=True)
+                #     print("j: " + str(j), flush=True)
+                #     print("token-map: " + str(token_map[j]), flush=True)
+                # feat_vector = torch.zeros(feat_vector_size)
+                feat_vector = (torch.rand(feat_vector_size) < 0.05).float()
+                # if len(sparse_vector) > 0:
+                #     for feat_idx in sparse_vector:
+                #         feat_vector[feat_idx] = 1
                 men_morph_feats.append(feat_vector)
                 men_mask.append(1)
             men_morph_feats = torch.stack(men_morph_feats)
