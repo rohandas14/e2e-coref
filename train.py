@@ -37,7 +37,7 @@ class Trainer:
         # print full config
         print(HOCONConverter.convert(self.config, 'hocon'))
 
-        wandb init
+        # wandb init
         wandb.init(project="coref", entity="rohdas")
 
         # initialize model and move to gpu if available
