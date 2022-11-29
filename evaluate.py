@@ -55,7 +55,7 @@ class Evaluator:
             for i, batch in enumerate(self.dataloader):
                 # collect data for evaluating batch
                 with torch.cuda.amp.autocast(enabled=amp):
-                    _, segm_len, _, _, gold_starts, gold_ends, _, cand_starts, cand_ends, token_map, morph_map = batch
+                    _, segm_len, _, _, gold_starts, gold_ends, _, cand_starts, cand_ends = batch
                     scores, labels, antes, ment_starts, ment_ends, cand_scores = self.model(*batch)
 
                 # update mention evaluators
@@ -74,7 +74,7 @@ class Evaluator:
             ment_evaluator.print_result()
 
         # print average F1 of CoNLL scorer
-        conll_results = conll.evaluate_conll(self.config['eval_gold_path'], coref_preds, subtoken_map, True)
+        conll_results = conll.evaluate_conll(self.config['eval_gold_path'], self.config['eval_gold_coreud_path'], self.config['predictions_path'], coref_preds, subtoken_map, True)
         conll_f1 = np.mean([result['f'] for result in conll_results.values()])
         print(f'Average F1 (conll): {conll_f1:.2f}%')
 
