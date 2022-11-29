@@ -102,7 +102,6 @@ def output_corefud(input_file, output_file, predictions, subtoken_map):
         word_index = 0
       output_file.write(line)
     else:
-      print(str(row) + " len =" + str(len(row)), flush=True)
       coref_list = []
       if word_index in end_map:
         for cluster_id in end_map[word_index]:
@@ -114,7 +113,6 @@ def output_corefud(input_file, output_file, predictions, subtoken_map):
         for cluster_id in start_map[word_index]:
           coref_list.append("Entity=(e{}--1-".format(cluster_id))
 
-      print("coref: " + str(coref_list), flush=True)
       if len(coref_list) == 0:
         row[-1] = "-"
       else:
@@ -145,13 +143,13 @@ def official_conll_eval(gold_path, predicted_path, metric, official_stdout=False
   f1 = float(coref_results_match.group(3))
   return { "r": recall, "p": precision, "f": f1 }
 
-def evaluate_conll(gold_path, gold_corefud_path, predictions, subtoken_map, official_stdout=False):
-  with open("./predictions/pred_corefud.txt", "w") as prediction_corefud_file:
+def evaluate_conll(gold_path, gold_corefud_path, predictions_path, predictions, subtoken_map, official_stdout=False):
+  with open(predictions_path, "w") as prediction_corefud_file:
     with open(gold_corefud_path, "r") as gold_corefud_file:
       output_corefud(gold_corefud_file, prediction_corefud_file, predictions, subtoken_map)
     print("Predicted corefud file: {}".format(prediction_corefud_file.name))
-  with open("./predictions/pred.txt", "w") as prediction_file:
-  #with tempfile.NamedTemporaryFile(delete=False, mode='w') as prediction_file:
+
+  with tempfile.NamedTemporaryFile(delete=True, mode='w') as prediction_file:
     with open(gold_path, "r") as gold_file:
       output_conll(gold_file, prediction_file, predictions, subtoken_map)
     print("Predicted conll file: {}".format(prediction_file.name))
