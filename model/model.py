@@ -129,7 +129,6 @@ class ModelTask(nn.Module):
         # warning: different order than proposed in the paper
         return torch.cat((start_embs, end_embs, width_embs, head_embs), dim=1), ment_dist
 
-
     def prune_mentions(self, ment_starts, ment_ends, ment_scores, k):
         # get mention indices sorted by the mention score
         ment_idx = ment_scores.argsort(descending=True)
