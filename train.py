@@ -44,7 +44,6 @@ class Trainer:
         model = Model(self.config, self.device1, self.device2, checkpointing)
         model.bert_model.to(self.device1)
         model.task_model.to(self.device2)
-        # debug_overflow = DebugUnderflowOverflow(model)
         model.train()
 
         # define loss and optimizer

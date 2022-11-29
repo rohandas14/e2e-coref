@@ -265,7 +265,7 @@ class ModelTask(nn.Module):
 
     def forward_fast(self, bert_emb, speaker_ids, cand_starts, cand_ends, morph_feats, morph_feats_mask):
         # get candidate mentions and scores
-        cand_embs, cand_dist = self.ment_embedding(bert_emb, cand_starts.to(self.device), cand_ends.to(self.device), morph_feats, morph_feats_mask)
+        cand_embs, cand_dist = self.ment_embedding(bert_emb.to(self.device), cand_starts.to(self.device), cand_ends.to(self.device), morph_feats.to(self.device), morph_feats_mask.to(self.device))
         cand_scores = self.mention_scorer(cand_embs).squeeze()
         # combine old mention scores and width score (bert-coref)
         width_scores = self.ment_width_scorer(self.ment_width_scorer_emb)
