@@ -85,7 +85,7 @@ class ModelTask(nn.Module):
         # scorer for mentions and antecedents
         hidden_size = self.config['hidden_size']
         hidden_depth = self.config['hidden_depth']
-        ment_emb_size = 3 * bert_size + feature_size + self.morph_dim  # RD: added morph size
+        ment_emb_size = 3 * bert_size + feature_size + 2 * self.morph_dim  # RD: added morph size
         ante_emb_size = 3 * ment_emb_size + 4 * feature_size
         # mention scoring
         self.mention_scorer = Scorer(ment_emb_size, hidden_size, hidden_depth, self.dropout)
