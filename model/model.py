@@ -60,7 +60,18 @@ class ModelTask(nn.Module):
         # morphology embedding
         self.morph_feature_num = ud_features.get_ud_features_length()
         self.morph_dim = 64
+        self.hidden_size = 64
+        self.padding_value = 1
         self.morph_emb = nn.Linear(self.morph_feature_num, self.morph_dim)
+        self.lstm_dropout_layer = torch.nn.Dropout(p=self.dropout, inplace=False)
+        self.lstm_encoder = nn.LSTM(input_size=self.morph_dim,
+                                    hidden_size=self.hidden_size,
+                                    num_layers=2,
+                                    batch_first=True,
+                                    dropout=self.dropout,
+                                    bidirectional=True)
+        # self.h0 = nn.Parameter(torch.rand(self.hidden_size))
+        # self.c0 = nn.Parameter(torch.rand(self.hidden_size))
 
         # feature embeddings
         bin_width = self.config['bin_widths']
@@ -74,7 +85,7 @@ class ModelTask(nn.Module):
         # scorer for mentions and antecedents
         hidden_size = self.config['hidden_size']
         hidden_depth = self.config['hidden_depth']
-        ment_emb_size = 3 * bert_size + feature_size + self.morph_dim # RD: added morph size
+        ment_emb_size = 3 * bert_size + feature_size + self.morph_dim  # RD: added morph size
         ante_emb_size = 3 * ment_emb_size + 4 * feature_size
         # mention scoring
         self.mention_scorer = Scorer(ment_emb_size, hidden_size, hidden_depth, self.dropout)
@@ -132,15 +143,23 @@ class ModelTask(nn.Module):
 
         # calculate morphology representation
         morph_embs = self.morph_emb(morph_feats.to(self.device))
-        morph_embs_sum = morph_embs.sum(dim=1)
-        men_token_count = morph_feats_mask.sum(dim=1).unsqueeze(dim=1).to(self.device)
-        avg_morph_embs = torch.div(morph_embs_sum, men_token_count)
+        morph_embs = self.lstm_dropout_layer(morph_embs)
+        lens = (morph_feats_mask == 0).sum(dim=1).to("cpu")
+        packed = nn.utils.rnn.pack_padded_sequence(
+            morph_embs, lens, batch_first=True, enforce_sorted=False
+        )
+        packed_outs, (hn, cn) = self.lstm_encoder(packed)
+        morph_encoded, _ = torch.nn.utils.rnn.pad_packed_sequence(
+            packed_outs,
+            batch_first=True,
+            padding_value=self.padding_value,
+            total_length=None,
+        )
+        morph_encoded = torch.mean(morph_encoded, 1)
 
         # combine different embeddings to single mention embedding
         # warning: different order than proposed in the paper
-        # return torch.cat((start_embs, end_embs, width_embs, head_embs), dim=1), ment_dist
-
-        return torch.cat((start_embs, end_embs, width_embs, head_embs, avg_morph_embs), dim=1), ment_dist
+        return torch.cat((start_embs, end_embs, width_embs, head_embs, morph_encoded), dim=1), ment_dist
 
     def prune_mentions(self, ment_starts, ment_ends, ment_scores, k):
         # get mention indices sorted by the mention score
@@ -265,7 +284,9 @@ class ModelTask(nn.Module):
 
     def forward_fast(self, bert_emb, speaker_ids, cand_starts, cand_ends, morph_feats, morph_feats_mask):
         # get candidate mentions and scores
-        cand_embs, cand_dist = self.ment_embedding(bert_emb.to(self.device), cand_starts.to(self.device), cand_ends.to(self.device), morph_feats.to(self.device), morph_feats_mask.to(self.device))
+        cand_embs, cand_dist = self.ment_embedding(bert_emb.to(self.device), cand_starts.to(self.device),
+                                                   cand_ends.to(self.device), morph_feats.to(self.device),
+                                                   morph_feats_mask.to(self.device))
         cand_scores = self.mention_scorer(cand_embs).squeeze()
         # combine old mention scores and width score (bert-coref)
         width_scores = self.ment_width_scorer(self.ment_width_scorer_emb)
@@ -304,7 +325,8 @@ class ModelTask(nn.Module):
         ment_embs = f * attended_emb + (1 - f) * ment_embs
         return ment_embs, ante_scores
 
-    def forward(self, bert_emb, segm_len, genre_id, speaker_ids, gold_starts, gold_ends, cluster_ids, cand_starts, cand_ends, morph_feats, morph_feats_mask):
+    def forward(self, bert_emb, segm_len, genre_id, speaker_ids, gold_starts, gold_ends, cluster_ids, cand_starts,
+                cand_ends, morph_feats, morph_feats_mask):
         # create sentence mask to flatten tensors
         sent_num, max_segm_len = len(segm_len), max(segm_len)
         sent_mask = torch.arange(max_segm_len).view(1, -1).repeat(sent_num, 1) < torch.as_tensor(segm_len).view(-1, 1)
@@ -327,6 +349,7 @@ class ModelTask(nn.Module):
 
         # get final coreference score for antecedents and labels
         coref_score = torch.cat((dummy_scores, ante_scores), dim=1)
-        labels = self.get_labels(self.ment_starts, self.ment_ends, gold_starts, gold_ends, cluster_ids, self.antes, self.ante_mask)
+        labels = self.get_labels(self.ment_starts, self.ment_ends, gold_starts, gold_ends, cluster_ids, self.antes,
+                                 self.ante_mask)
 
         return coref_score, labels, self.antes, self.ment_starts, self.ment_ends, cand_scores
