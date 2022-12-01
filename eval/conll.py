@@ -105,18 +105,18 @@ def output_corefud(input_file, output_file, predictions, subtoken_map):
       coref_list = []
       if word_index in end_map:
         for cluster_id in end_map[word_index]:
-          coref_list.append("Entity=e{})".format(cluster_id))
+          coref_list.append("e{})".format(cluster_id))
       if word_index in word_map:
         for cluster_id in word_map[word_index]:
-          coref_list.append("Entity=(e{}--1-)".format(cluster_id))
+          coref_list.append("(e{}--1-)".format(cluster_id))
       if word_index in start_map:
         for cluster_id in start_map[word_index]:
-          coref_list.append("Entity=(e{}--1-".format(cluster_id))
+          coref_list.append("(e{}--1-".format(cluster_id))
 
       if len(coref_list) == 0:
         row[-1] = "-"
       else:
-        row[-1] = "|".join(coref_list)
+        row[-1] = "Entity=" + "".join(coref_list)
 
       output_file.write("\t".join(row))
       output_file.write("\n")
