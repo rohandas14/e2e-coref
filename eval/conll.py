@@ -88,6 +88,7 @@ def output_corefud(input_file, output_file, predictions, subtoken_map):
       end_map[k] = [cluster_id for cluster_id, start in sorted(v, key=operator.itemgetter(1), reverse=True)]
     prediction_map[doc_key] = (start_map, end_map, word_map)
 
+  print(predictions, flush=True)
   word_index = 0
   for line in input_file.readlines():
     row = line.split("\t")

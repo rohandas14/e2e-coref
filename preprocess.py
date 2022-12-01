@@ -11,11 +11,14 @@ import conll
 import util
 import udapi_io
 import ud_features
+import random
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
                     datefmt='%m/%d/%Y %H:%M:%S', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+TOKEN_FEAT_MAP = {}
+random.seed(42)
 
 def skip_doc(doc_key):
     return False
@@ -282,6 +285,7 @@ def get_document(doc_key, language, seg_len, tokenizer, udapi_document=None):
     """ Process raw input to finalized documents """
     document_state = DocumentState(doc_key)
     word_idx = -1
+    ud_feat_size = ud_features.get_ud_features_length()
 
     # Build up documents
     last_ord = 0
@@ -294,17 +298,31 @@ def get_document(doc_key, language, seg_len, tokenizer, udapi_document=None):
         word_feats = node.feats._string.split('|') if node.feats else []
         word_feats_onehot = []
         ud_features_dict = ud_features.get_ud_features_dict()
-        if node.upos is not None or node.upos != "":
-            if node.upos in ud_features_dict:
-                word_feats_onehot.append((ud_features_dict[node.upos]))
-            else:
-                print("No POS found with key: " + node.upos, flush=True)
-        for feat in word_feats:
-            try:
-                word_feats_onehot.append(ud_features_dict[feat])
-            except:
-                print("No feat found: " + feat, flush=True)
-                continue
+        if word not in TOKEN_FEAT_MAP:
+            if node.upos is not None or node.upos != "":
+                if node.upos in ud_features_dict:
+                    added = False
+                    while not added:
+                        rand_idx = random.randrange(ud_feat_size)
+                        if rand_idx not in word_feats_onehot:
+                            word_feats_onehot.append(rand_idx)
+                            added = True
+                else:
+                    print("No POS found with key: " + node.upos, flush=True)
+            for feat in word_feats:
+                try:
+                    added = False
+                    while not added:
+                        rand_idx = random.randrange(ud_feat_size)
+                        if rand_idx not in word_feats_onehot:
+                            word_feats_onehot.append(rand_idx)
+                            added = True
+                except:
+                    print("No feat found: " + feat, flush=True)
+                    continue
+            TOKEN_FEAT_MAP[word] = word_feats_onehot
+        else:
+            word_feats_onehot = TOKEN_FEAT_MAP[word]
         document_state.morph_features[word_idx] = word_feats_onehot
         subtokens = tokenizer.tokenize(word)
         document_state.tokens.append(word)
@@ -330,7 +348,7 @@ def get_document(doc_key, language, seg_len, tokenizer, udapi_document=None):
 
 def minimize_partition(partition, extension, args, tokenizer):
     input_path = os.path.join(args.input_folder, f'{args.language}-{partition}.{extension}')
-    output_path = os.path.join(args.data_folder, f'{partition}.{args.language}.jsonlines')
+    output_path = os.path.join(args.data_folder, f'{partition}.{args.language}.control.jsonlines')
     doc_count = 0
     logger.info(f'Minimizing {input_path}...')
 
@@ -359,7 +377,7 @@ def minimize_language(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Preprocess CorefUD dataset.')
-    parser.add_argument('-c', metavar='CONF', default='multilingual-bert-base', help='configuration (see coref.conf)')
+    parser.add_argument('-c', metavar='CONF', default='multilingual-bert-base-russian', help='configuration (see coref.conf)')
     args = parser.parse_args()
     config = ConfigFactory.parse_file('./coref.conf')[args.c]
     os.makedirs(config.data_folder, exist_ok=True)
