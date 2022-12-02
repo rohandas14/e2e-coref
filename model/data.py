@@ -111,7 +111,13 @@ class Dataset(data.Dataset):
             men_morph_feats = []
             men_mask = []
             for j in range(ment_starts[i], ment_ends[i] + 1):
-                sparse_vector = morph_map[str(token_map[j])]
+                try:
+                    sparse_vector = morph_map[str(token_map[j])]
+                except:
+                    # print("i: " + str(i), flush=True)
+                    # print("j: " + str(j), flush=True)
+                    # print("token-map: " + str(token_map[j]), flush=True)
+                    pass
                 feat_vector = torch.zeros(feat_vector_size)
                 if len(sparse_vector) > 0:
                     for feat_idx in sparse_vector:

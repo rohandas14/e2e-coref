@@ -67,7 +67,7 @@ class ModelTask(nn.Module):
         self.morph_dim = self.config['morph_dim']
         self.morph_emb = nn.Linear(self.morph_feature_num, self.morph_dim)
         encoder_layer = nn.TransformerEncoderLayer(d_model=self.morph_dim, nhead=4)
-        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=1)
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=2)
         # self.transformer = nn.Transformer(d_model=self.morph_dim, nhead=4, num_encoder_layers=2, num_decoder_layers=0,
         #                                   dim_feedforward=1024, batch_first=True)
 

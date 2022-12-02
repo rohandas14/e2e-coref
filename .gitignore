@@ -3,13 +3,14 @@
 *.pyc
 .idea
 
-# ignore checkpoints
-data/ckpt
+# ignore checkpoints and other data
+data
 
 # ignore data downloaded and build up by setup.sh
 conll-2012
-data/data
-data/embs
+
+# ignore predictions
+predictions
 
 # ignore local files
 local
@@ -20,7 +21,14 @@ ontonotes-release-5.0
 # ignore CorefUD data
 CorefUD-1.0-public
 
+# ignore logs
 logs
 
-tokenize.sh
+# ignore wandb
+wandb
+
+# ignore slurm scripts
+evaluate.sh
 train.sh
+train-alpine.sh
+tokenize.sh

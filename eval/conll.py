@@ -67,6 +67,61 @@ def output_conll(input_file, output_file, predictions, subtoken_map):
       output_file.write("\n")
       word_index += 1
 
+def output_corefud(input_file, output_file, predictions, subtoken_map):
+  prediction_map = {}
+  for doc_key, clusters in predictions.items():
+    start_map = collections.defaultdict(list)
+    end_map = collections.defaultdict(list)
+    word_map = collections.defaultdict(list)
+    for cluster_id, mentions in enumerate(clusters):
+      for start, end in mentions:
+        # map sub-tokens to words
+        start, end = subtoken_map[doc_key][start], subtoken_map[doc_key][end]
+        if start == end:
+          word_map[start].append(cluster_id)
+        else:
+          start_map[start].append((cluster_id, end))
+          end_map[end].append((cluster_id, start))
+    for k,v in start_map.items():
+      start_map[k] = [cluster_id for cluster_id, end in sorted(v, key=operator.itemgetter(1), reverse=True)]
+    for k,v in end_map.items():
+      end_map[k] = [cluster_id for cluster_id, start in sorted(v, key=operator.itemgetter(1), reverse=True)]
+    prediction_map[doc_key] = (start_map, end_map, word_map)
+
+  word_index = 0
+  for line in input_file.readlines():
+    row = line.split("\t")
+    if len(row) == 0:
+      output_file.write("\n")
+    elif len(row) == 1 and row[0] == "\n":
+      output_file.write("\n")
+    elif row[0].startswith("#"):
+      if row[0].startswith("# newdoc"):
+        doc_key = row[0].split()[-1]
+        start_map, end_map, word_map = prediction_map[doc_key]
+        word_index = 0
+      output_file.write(line)
+    else:
+      coref_list = []
+      if word_index in end_map:
+        for cluster_id in end_map[word_index]:
+          coref_list.append("e{})".format(cluster_id))
+      if word_index in word_map:
+        for cluster_id in word_map[word_index]:
+          coref_list.append("(e{}--1-)".format(cluster_id))
+      if word_index in start_map:
+        for cluster_id in start_map[word_index]:
+          coref_list.append("(e{}--1-".format(cluster_id))
+
+      if len(coref_list) == 0:
+        row[-1] = "-"
+      else:
+        row[-1] = "Entity=" + "".join(coref_list)
+
+      output_file.write("\t".join(row))
+      output_file.write("\n")
+      word_index += 1
+
 def official_conll_eval(gold_path, predicted_path, metric, official_stdout=False):
   cmd = ["conll-2012/scorer/v8.01/scorer.pl", metric, gold_path, predicted_path, "none"]
   process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
@@ -88,9 +143,13 @@ def official_conll_eval(gold_path, predicted_path, metric, official_stdout=False
   f1 = float(coref_results_match.group(3))
   return { "r": recall, "p": precision, "f": f1 }
 
-def evaluate_conll(gold_path, predictions, subtoken_map, official_stdout=False):
-  with open("./predictions/pred.txt", "w") as prediction_file:
-  #with tempfile.NamedTemporaryFile(delete=False, mode='w') as prediction_file:
+def evaluate_conll(gold_path, gold_corefud_path, predictions_path, predictions, subtoken_map, official_stdout=False):
+  with open(predictions_path, "w") as prediction_corefud_file:
+    with open(gold_corefud_path, "r") as gold_corefud_file:
+      output_corefud(gold_corefud_file, prediction_corefud_file, predictions, subtoken_map)
+    print("Predicted corefud file: {}".format(prediction_corefud_file.name))
+
+  with tempfile.NamedTemporaryFile(delete=True, mode='w') as prediction_file:
     with open(gold_path, "r") as gold_file:
       output_conll(gold_file, prediction_file, predictions, subtoken_map)
     print("Predicted conll file: {}".format(prediction_file.name))

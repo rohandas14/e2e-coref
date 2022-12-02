@@ -73,7 +73,7 @@ class Evaluator:
             ment_evaluator.print_result()
 
         # print average F1 of CoNLL scorer
-        conll_results = conll.evaluate_conll(self.config['eval_gold_path'], coref_preds, subtoken_map, True)
+        conll_results = conll.evaluate_conll(self.config['eval_gold_path'], self.config['eval_gold_coreud_path'], self.config['predictions_path'], coref_preds, subtoken_map, True)
         conll_f1 = np.mean([result['f'] for result in conll_results.values()])
         print(f'Average F1 (conll): {conll_f1:.2f}%')
 

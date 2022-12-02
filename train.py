@@ -19,7 +19,6 @@ class Trainer:
         self.config = ConfigFactory.parse_file('./coref.conf')[conf]
         # configure devices (cpu or up to two sequential gpus)
         self.use_cuda = gpu and torch.cuda.is_available()
-        # self.device = torch.device("cuda" if self.use_cuda else "cpu") # RD
         self.device1 = torch.device('cuda:0' if self.use_cuda else 'cpu')
         self.device2 = torch.device('cuda:1' if self.use_cuda else 'cpu')
         self.device2 = self.device2 if split else self.device1
@@ -30,8 +29,7 @@ class Trainer:
     def train(self, name, amp=False, checkpointing=False):
         # Print infos to console
         print(f"### Start Training ###")
-        print(f'running on: {self.device1} {self.device2}') # RD
-        # print(f'running on: {self.device}') # RD
+        print(f'running on: {self.device1} {self.device2}')
         print(f'running for: {self.config["epochs"]} epochs')
         print(f'number of batches: {len(self.dataloader)}')
         print(f'saving ckpts to: {name}\n')
@@ -40,19 +38,12 @@ class Trainer:
         print(HOCONConverter.convert(self.config, 'hocon'))
 
         # wandb init
-        # wandb.init(project="coref", entity="rohdas")
+        wandb.init(project="coref", entity="rohdas")
 
         # initialize model and move to gpu if available
-        model = Model(self.config, self.device1, self.device2, checkpointing) # RD
-        model.bert_model.to(self.device1) # RD
-        model.task_model.to(self.device2) # RD
-        # model = Model(self.config, self.device, checkpointing) # RD
-        # if self.use_cuda: # RD
-        #     model.bert_model = nn.DataParallel(model.bert_model, device_ids = [0]) # RD
-        # model.bert_model.to(self.device) # RD
-        # if self.use_cuda: # RD
-        #     model.task_model = nn.DataParallel(model.task_model, device_ids = [1]) # RD
-        # model.task_model.to(self.device) # RD
+        model = Model(self.config, self.device1, self.device2, checkpointing)
+        model.bert_model.to(self.device1)
+        model.task_model.to(self.device2)
         model.train()
 
         # define loss and optimizer
@@ -85,11 +76,11 @@ class Trainer:
         # load latest checkpoint from path
         epoch = self.load_ckpt(model, optimizer_bert, optimizer_task, scheduler_bert, scheduler_task, scaler)
 
-        # wandb.config = {
-        #     "lr_bert": lr_bert,
-        #     "lr_task": lr_task,
-        #     "epochs": self.config['epochs']
-        # }
+        wandb.config = {
+            "lr_bert": lr_bert,
+            "lr_task": lr_task,
+            "epochs": self.config['epochs']
+        }
 
         params_no = sum(param.numel() for param in model.bert_model.parameters() if param.requires_grad)
         params_no += sum(param.numel() for param in model.task_model.parameters() if param.requires_grad)
@@ -133,7 +124,7 @@ class Trainer:
             print(f'Epoch {e:03d} took: {epoch_time}\n', flush=True)
             epoch_loss = acc_loss/len(self.dataloader)
             print(f'Loss for Epoch {e:03d}: {epoch_loss}\n', flush=True)
-            # wandb.log({"loss": epoch_loss})
+            wandb.log({"loss": epoch_loss})
 
     def save_ckpt(self, epoch, model, optimizer_bert, optimizer_task, scheduler_bert, scheduler_task, scaler):
         path = self.path.joinpath(f'ckpt_epoch-{epoch:03d}.pt.tar')
