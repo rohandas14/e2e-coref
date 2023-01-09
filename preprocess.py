@@ -296,7 +296,18 @@ def get_document(doc_key, language, seg_len, tokenizer, udapi_document=None):
         ud_features_dict = ud_features.get_ud_features_dict()
         for feat in word_feats:
             try:
-                word_feats_onehot.append(ud_features_dict[feat])
+                if feat.startsWith("PronType"):
+                    prontypes = feat.split("=")[1].split(",")
+                    for prontype in prontypes:
+                        prontype_idx = "PronType=" + prontype
+                        word_feats_onehot.append(ud_features_dict[prontype_idx])
+                else if feat.startsWith("Case"):
+                    cases = feat.split("=")[1].split(",")
+                    for case in cases:
+                        case_idx = "Case=" + case
+                        word_feats_onehot.append(ud_features_dict[case_idx])
+                else:
+                    word_feats_onehot.append(ud_features_dict[feat])
             except:
                 continue
         document_state.morph_features[word_idx] = word_feats_onehot
@@ -348,6 +359,7 @@ def minimize_language(args):
     # minimize_partition('test', 'conllu', args, tokenizer)
 
     minimize_partition('dev', 'conllu', args, tokenizer)
+    minimize_partition('test', 'conllu', args, tokenizer)
     minimize_partition('train', 'conllu', args, tokenizer)
 
 
