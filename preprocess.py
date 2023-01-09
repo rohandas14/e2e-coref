@@ -301,7 +301,7 @@ def get_document(doc_key, language, seg_len, tokenizer, udapi_document=None):
                     for prontype in prontypes:
                         prontype_idx = "PronType=" + prontype
                         word_feats_onehot.append(ud_features_dict[prontype_idx])
-                else if feat.startsWith("Case"):
+                elif feat.startsWith("Case"):
                     cases = feat.split("=")[1].split(",")
                     for case in cases:
                         case_idx = "Case=" + case
