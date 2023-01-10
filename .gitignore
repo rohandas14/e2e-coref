@@ -20,6 +20,7 @@ ontonotes-release-5.0
 
 # ignore CorefUD data
 CorefUD-1.0-public
+datasets
 
 # ignore logs
 logs
