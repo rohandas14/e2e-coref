@@ -1,6 +1,8 @@
 import os
 import time
 import torch
+import random
+import numpy as np
 import argparse
 import wandb
 from pathlib import Path
@@ -17,6 +19,14 @@ from transformers.debug_utils import DebugUnderflowOverflow
 class Trainer:
 
     def __init__(self, conf, gpu, split):
+        seed = 42
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.random.manual_seed(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        
         self.config = ConfigFactory.parse_file('./coref.conf')[conf]
         # configure devices (cpu or up to two sequential gpus)
         use_cuda = gpu and torch.cuda.is_available()
