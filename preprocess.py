@@ -7,7 +7,6 @@ import collections
 import json
 from pyhocon import ConfigFactory
 from transformers import BertTokenizer, AutoTokenizer
-import conll
 import util
 import udapi_io
 import ud_features

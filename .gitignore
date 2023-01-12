@@ -32,4 +32,5 @@ wandb
 evaluate.sh
 train.sh
 train-alpine.sh
+train-amd.sh
 tokenize.sh
