@@ -65,7 +65,7 @@ def output_corefud(input_file, output_file, predictions, subtoken_map):
       word_index += 1
 
 def official_corefud_eval(gold_path, predicted_path):
-  cmd = ["python3", "-W", "ignore", "./corefud-scorer/corefud-scorer.py", gold_path, predicted_path]
+  cmd = ["python3", "./corefud-scorer/corefud-scorer.py", gold_path, predicted_path]
   process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
   stdout, stderr = process.communicate()
   process.wait()
@@ -86,5 +86,4 @@ def evaluate_conll(gold_corefud_path, predictions_path, predictions, subtoken_ma
   with open(predictions_path, "w") as prediction_corefud_file:
     with open(gold_corefud_path, "r") as gold_corefud_file:
       output_corefud(gold_corefud_file, prediction_corefud_file, predictions, subtoken_map)
-    print("file: " + prediction_corefud_file.name, flush=True)
   return official_corefud_eval(gold_corefud_file.name, prediction_corefud_file.name)

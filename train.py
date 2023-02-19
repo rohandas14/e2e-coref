@@ -13,7 +13,7 @@ from eval_corefud import conll
 from model.data import Dataset, DataLoader
 from model.model import Model
 
-from transformers.debug_utils import DebugUnderflowOverflow
+from early_stopper import EarlyStopper
 
 
 class Trainer:
@@ -101,6 +101,8 @@ class Trainer:
         best_validation_f1 = float('-inf')
         best_epoch = -1
         best_validation_path = ""
+        
+        early_stopper = EarlyStopper(patience=5, min_delta=1, min_training_loss=0.01)
 
         # run indefinitely until keyboard interrupt
         for e in range(epoch, self.config['epochs']):
@@ -171,6 +173,9 @@ class Trainer:
                 print("Best validation F1 attained. Saving model checkpoint.\n", flush=True)
                 
             wandb.log({"loss": epoch_loss})
+            if epoch_loss <= 0.01 and early_stopper.early_stop(epoch_loss):
+                print("Stopping early...")
+                break
 
     def save_ckpt(self, epoch, model, optimizer_bert, optimizer_task, scheduler_bert, scheduler_task, scaler):
         path = self.path.joinpath(f'ckpt_epoch-{epoch:03d}.pt.tar')
