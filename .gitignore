@@ -5,6 +5,7 @@
 
 # ignore checkpoints and other data
 data
+datasets
 
 # ignore data downloaded and build up by setup.sh
 conll-2012
@@ -32,3 +33,4 @@ evaluate.sh
 train.sh
 train-alpine.sh
 tokenize.sh
+train-amd.sh
