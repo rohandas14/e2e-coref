@@ -54,7 +54,7 @@ class Trainer:
         print(HOCONConverter.convert(self.config, 'hocon'))
 
         # wandb init
-        wandb.init(project="coref", entity="rohdas")
+        # wandb.init(project="coref", entity="rohdas")
 
         # initialize model and move to gpu if available
         model = Model(self.config, self.device1, self.device2, checkpointing)
@@ -142,7 +142,7 @@ class Trainer:
                 for j, val_batch in enumerate(self.val_dataloader):
                     # collect data for evaluating batch
                     with torch.cuda.amp.autocast(enabled=amp):
-                        _, segm_len, _, _, gold_starts, gold_ends, _, cand_starts, cand_ends, morph_feats, morph_feats_mask = val_batch
+                        _, segm_len, _, _, gold_starts, gold_ends, _, cand_starts, cand_ends, morph_feats, morph_feats_mask, doc_morph_feats = val_batch
                         scores, labels, antes, ment_starts, ment_ends, cand_scores = model(*val_batch)
 
                     raw_data = self.val_dataset.get_raw_data(j)
@@ -172,7 +172,7 @@ class Trainer:
                 best_epoch = e
                 print("Best validation F1 attained. Saving model checkpoint.\n", flush=True)
                 
-            wandb.log({"loss": epoch_loss})
+            # wandb.log({"loss": epoch_loss})
             if epoch_loss <= 0.01 and early_stopper.early_stop(epoch_loss):
                 print("Stopping early...")
                 break

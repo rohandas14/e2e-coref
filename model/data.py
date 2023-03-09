@@ -81,6 +81,11 @@ class Dataset(data.Dataset):
         token_map = doc['token_map']
         morph_map = doc['morph_map']
 
+        if "doc_morph_feats" in doc:
+            doc_morph_feats = doc["doc_morph_feats"]
+        else:
+            doc_morph_feats = self.morph_feats_mod(token_map, morph_map)
+
         if "cand_starts" in doc and "cand_ends" in doc:
             cand_starts = doc["cand_starts"]
             cand_ends = doc["cand_ends"]
@@ -98,7 +103,7 @@ class Dataset(data.Dataset):
             self.data[item]["morph_feats_mask"] = morph_feats_mask
 
         # return all necessary information for training and evaluation
-        return segms, segm_len, genre_id, speaker_ids, gold_starts, gold_ends, cluster_ids, cand_starts, cand_ends, morph_feats, morph_feats_mask
+        return segms, segm_len, genre_id, speaker_ids, gold_starts, gold_ends, cluster_ids, cand_starts, cand_ends, morph_feats, morph_feats_mask, doc_morph_feats
 
     def morph_feats(self, ment_starts, ment_ends, token_map, morph_map):
         ment_starts = ment_starts.tolist()
@@ -134,6 +139,22 @@ class Dataset(data.Dataset):
         morph_feats = torch.stack(morph_feats)
         morph_feats_mask = torch.stack(morph_feats_mask)
         return morph_feats, morph_feats_mask
+
+    def morph_feats_mod(self, token_map, morph_map):
+        men_morph_feats = []
+        feat_vector_size = ud_features.get_ud_features_length()
+
+        token_morph_map = [morph_map[str(i)] for i in token_map]
+
+        for token_sparse_vector in token_morph_map:
+            feat_vector = torch.zeros(feat_vector_size)
+            if len(token_sparse_vector) > 0:
+                for feat_idx in token_sparse_vector:
+                    feat_vector[feat_idx] = 1
+            men_morph_feats.append(feat_vector)
+        men_morph_feats = torch.stack(men_morph_feats)
+
+        return men_morph_feats
 
     def truncate(self, doc, max_segm_num):
         sents = doc['segments']
