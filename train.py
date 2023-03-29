@@ -54,7 +54,7 @@ class Trainer:
         print(HOCONConverter.convert(self.config, 'hocon'))
 
         # wandb init
-        # wandb.init(project="coref", entity="rohdas")
+        wandb.init(project="coref", entity="rohdas")
 
         # initialize model and move to gpu if available
         model = Model(self.config, self.device1, self.device2, checkpointing)
@@ -172,7 +172,7 @@ class Trainer:
                 best_epoch = e
                 print("Best validation F1 attained. Saving model checkpoint.\n", flush=True)
                 
-            # wandb.log({"loss": epoch_loss})
+            wandb.log({"loss": epoch_loss})
             if epoch_loss <= 0.01 and early_stopper.early_stop(epoch_loss):
                 print("Stopping early...")
                 break

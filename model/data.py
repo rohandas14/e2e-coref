@@ -144,7 +144,14 @@ class Dataset(data.Dataset):
         men_morph_feats = []
         feat_vector_size = ud_features.get_ud_features_length()
 
-        token_morph_map = [morph_map[str(i)] for i in token_map]
+        # token_morph_map = [morph_map[str(i)] for i in token_map]
+        
+        token_morph_map = []
+        for i in token_map:
+            try:
+                token_morph_map.append(morph_map[str(i)])
+            except:
+                token_morph_map.append([])
 
         for token_sparse_vector in token_morph_map:
             feat_vector = torch.zeros(feat_vector_size)
