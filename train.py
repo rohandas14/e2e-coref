@@ -13,7 +13,7 @@ from eval_corefud import conll
 from model.data import Dataset, DataLoader
 from model.model import Model
 
-from transformers.debug_utils import DebugUnderflowOverflow
+from early_stopper import EarlyStopper
 
 
 class Trainer:
@@ -39,8 +39,12 @@ class Trainer:
         self.dataloader = DataLoader(self.dataset, shuffle=True)
         
         # load dataset with validation data
-        self.val_dataset = Dataset(self.config, training=False)
+        self.val_dataset = Dataset(self.config, validation=True)
         self.val_dataloader = DataLoader(self.val_dataset, shuffle=False)
+        
+        # load dataset with test data
+        self.test_dataset = Dataset(self.config, testing=True)
+        self.test_dataloader = DataLoader(self.test_dataset, shuffle=False)
 
     def train(self, name, amp=False, checkpointing=False):
         # Print infos to console
@@ -90,7 +94,7 @@ class Trainer:
         self.path = Path(f'./data/ckpt/{name}')
         self.path.mkdir(exist_ok=True)
         # load latest checkpoint from path
-        epoch = self.load_ckpt(model, optimizer_bert, optimizer_task, scheduler_bert, scheduler_task, scaler)
+        epoch, latest_ckpt = self.load_ckpt(model, optimizer_bert, optimizer_task, scheduler_bert, scheduler_task, scaler)
 
         wandb.config = {
             "lr_bert": lr_bert,
@@ -103,7 +107,9 @@ class Trainer:
         
         best_validation_f1 = float('-inf')
         best_epoch = -1
-        best_validation_path = ""
+        best_validation_path = latest_ckpt
+        
+        early_stopper = EarlyStopper(patience=self.config['patience'])
         
         # run indefinitely until keyboard interrupt
         for e in range(epoch, self.config['epochs']):
@@ -152,7 +158,7 @@ class Trainer:
                     subtoken_map[raw_data['doc_key']] = raw_data['token_map']
                 
             # evaluate with CorefUD scorer
-            corefud_f1 = conll.evaluate_conll(self.config['eval_gold_coreud_path'], self.config['predictions_path'], coref_preds, subtoken_map)
+            corefud_f1 = conll.evaluate_conll(self.config['eval_gold_corefud_path'], self.config['predictions_path'], coref_preds, subtoken_map)
                 
             epoch_time = time.time() - init_epoch_time
             epoch_time = time.strftime('%H:%M:%S', time.gmtime(epoch_time))
@@ -173,7 +179,34 @@ class Trainer:
                 print("Best validation F1 attained. Saving model checkpoint.\n", flush=True)
             
             wandb.log({"loss": epoch_loss})
+            
+            if early_stopper.early_stop(corefud_f1):
+                print(f'No improvement in validation F1 for {patience} epochs. Stopping early.', flush=True)
+                break
+            
+        print("Running evaluation on test set.", flush=True)
+        # load checkpoint with based validation F1
+        self.load_ckpt(model, optimizer_bert, optimizer_task, scheduler_bert, scheduler_task, scaler)
+        
+        # evaluating on test data
+        with torch.no_grad():
+            model.eval()
+            coref_preds, subtoken_map = {}, {}
+            for j, test_batch in enumerate(self.test_dataloader):
+                # collect data for evaluating batch
+                with torch.cuda.amp.autocast(enabled=amp):
+                    _, segm_len, _, _, gold_starts, gold_ends, _, cand_starts, cand_ends = test_batch
+                    scores, labels, antes, ment_starts, ment_ends, cand_scores = model(*test_batch)
 
+                raw_data = self.test_dataset.get_raw_data(j)
+                pred_clusters = self.eval_antecedents(scores, antes, ment_starts, ment_ends, raw_data)
+                coref_preds[raw_data['doc_key']] = pred_clusters
+                subtoken_map[raw_data['doc_key']] = raw_data['token_map']
+                
+        # evaluate with CorefUD scorer
+        corefud_f1 = conll.evaluate_conll(self.config['test_gold_corefud_path'], self.config['predictions_path'], coref_preds, subtoken_map)
+        print(f'Test F1: {corefud_f1}\n', flush=True)
+        
     def save_ckpt(self, epoch, model, optimizer_bert, optimizer_task, scheduler_bert, scheduler_task, scaler):
         path = self.path.joinpath(f'ckpt_epoch-{epoch:03d}.pt.tar')
         torch.save({
@@ -194,7 +227,7 @@ class Trainer:
         ckpts = list(self.path.glob('ckpt_epoch-*.pt.tar'))
         if not ckpts:
             print(f'\nNo checkpoint found: Start training from scratch\n')
-            return 0
+            return 0, ""
 
         # get latest checkpoint
         latest_ckpt = max(ckpts, key=lambda p: p.stat().st_ctime)
@@ -207,7 +240,7 @@ class Trainer:
         scheduler_bert.load_state_dict(latest_ckpt['scheduler_bert'])
         scheduler_task.load_state_dict(latest_ckpt['scheduler_task'])
         scaler.load_state_dict(latest_ckpt['scaler'])
-        return latest_ckpt['epoch'] + 1
+        return latest_ckpt['epoch'] + 1, latest_ckpt
     
     def eval_antecedents(self, scores, antes, ment_starts, ment_ends, raw_data):
         # tensor to numpy array

@@ -61,8 +61,8 @@ def split_data_to_docs(data):
             if len(words_docs) > 1:
                 mention_str = ", ".join([str(w) for w in mention.words])
                 raise CorefFormatError("Mention cannot cross a document boundary. The following does: " + mention_str)
-            if mention_doc and mention_doc != words_docs[0]:
-                logging.warning(f"Cluster {cluster.eid} spans two documents ({mention_doc}, {words_docs[0]}). It will be split.")
+            # if mention_doc and mention_doc != words_docs[0]:
+                # logging.warning(f"Cluster {cluster.eid} spans two documents ({mention_doc}, {words_docs[0]}). It will be split.")
             mention_doc = words_docs[0]
             doc_clusters[mention_doc][cluster.eid].append(mention)
     return doc_clusters

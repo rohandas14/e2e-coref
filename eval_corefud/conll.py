@@ -90,5 +90,4 @@ def evaluate_conll(gold_corefud_path, predictions_path, predictions, subtoken_ma
   with open(predictions_path, "w") as prediction_corefud_file:
     with open(gold_corefud_path, "r") as gold_corefud_file:
       output_corefud(gold_corefud_file, prediction_corefud_file, predictions, subtoken_map)
-    print("file: " + prediction_corefud_file.name, flush=True)
   return official_corefud_eval(gold_corefud_file.name, prediction_corefud_file.name)

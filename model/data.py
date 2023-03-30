@@ -9,13 +9,18 @@ from torch.utils import data
 
 class Dataset(data.Dataset):
 
-    def __init__(self, config, training=True):
+    def __init__(self, config, training=False, validation=False, testing=False):
         self.config = config
         self.training = training
         # read from configuration
         self.genres = {g: i for i, g in enumerate(self.config['genres'])}
         data_folder = Path(config['data_folder'])
-        data_file = config['train_data_file'] if training else config['eval_data_file']
+        if training:
+            data_file = config['train_data_file']
+        elif validation:
+            data_file = config['eval_data_file']
+        elif testing:
+            data_file = config['test_data_file']
         data_path = data_folder.joinpath(data_file)
         # read data from file
         self.data = []
