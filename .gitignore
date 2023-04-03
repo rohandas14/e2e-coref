@@ -30,6 +30,7 @@ wandb
 
 # ignore slurm scripts
 evaluate.sh
+queue.sh
 train.sh
 train-alpine.sh
 train-amd.sh

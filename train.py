@@ -173,11 +173,11 @@ class Trainer:
             corefud_f1 = conll.evaluate_conll(self.config['eval_gold_corefud_path'], self.config['predictions_path'], coref_preds, subtoken_map)
             
             logging_df.loc[0, 'cur_val_f1'] = corefud_f1
-            logging_df.loc[0, 'cur_epoch'] = e + 1
+            logging_df.loc[0, 'cur_epoch'] = e+1
             
             epoch_time = time.time() - init_epoch_time
             epoch_time = time.strftime('%H:%M:%S', time.gmtime(epoch_time))
-            print(f'Epoch {e:03d} took: {epoch_time}\n', flush=True)
+            print(f'Epoch {e+1:03d} took: {epoch_time}\n', flush=True)
             epoch_loss = train_loss_sum/len(self.dataloader)
             print(f'Loss for Epoch {e:03d}: {epoch_loss}\n', flush=True)
             if e != 0:
