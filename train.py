@@ -120,8 +120,8 @@ class Trainer:
         best_validation_f1 = float('-inf')
         best_epoch = -1
         best_validation_path = ""
-        
-        early_stopper = EarlyStopper(patience=self.config['patience'])
+        self.patience = self.config['patience']
+        early_stopper = EarlyStopper(patience=self.patience)
         
         # run indefinitely until keyboard interrupt
         for e in range(epoch, self.config['epochs']):
@@ -201,7 +201,7 @@ class Trainer:
             wandb.log({"loss": epoch_loss})
             
             if early_stopper.early_stop(corefud_f1):
-                print(f'No improvement in validation F1 for {patience} epochs. Stopping early.', flush=True)
+                print(f'No improvement in validation F1 for {self.patience} epochs. Stopping early.', flush=True)
                 break
             
         print("Running evaluation on test set.", flush=True)
