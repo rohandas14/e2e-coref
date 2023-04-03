@@ -1,10 +1,12 @@
 import os
+import csv
 import time
 import torch
 import random
 import numpy as np
 import argparse
 import wandb
+import pandas as pd
 from pathlib import Path
 from pyhocon import ConfigFactory, HOCONConverter
 from transformers import AdamW, get_linear_schedule_with_warmup
@@ -94,8 +96,18 @@ class Trainer:
         self.path = Path(f'./data/ckpt/{name}')
         self.path.mkdir(exist_ok=True)
         # load latest checkpoint from path
-        epoch, latest_ckpt = self.load_ckpt(model, optimizer_bert, optimizer_task, scheduler_bert, scheduler_task, scaler)
-
+        epoch = self.load_ckpt(model, optimizer_bert, optimizer_task, scheduler_bert, scheduler_task, scaler)
+        
+        # prepare csv logging
+        csv_path = os.path.join(self.path, self.config["log_file_name"])
+        with open(csv_path, 'w', newline='') as file:
+            writer = csv.writer(file)
+            field = ["cur_epoch", "cur_val_f1", "best_epoch", "best_val_f1", "test_f1"]
+            writer.writerow(field)
+            writer.writerow(["-", "-", "-", "-", "-"])
+            
+        logging_df = pd.read_csv(csv_path, delimiter=',')
+        
         wandb.config = {
             "lr_bert": lr_bert,
             "lr_task": lr_task,
@@ -107,7 +119,7 @@ class Trainer:
         
         best_validation_f1 = float('-inf')
         best_epoch = -1
-        best_validation_path = latest_ckpt
+        best_validation_path = ""
         
         early_stopper = EarlyStopper(patience=self.config['patience'])
         
@@ -159,7 +171,10 @@ class Trainer:
                 
             # evaluate with CorefUD scorer
             corefud_f1 = conll.evaluate_conll(self.config['eval_gold_corefud_path'], self.config['predictions_path'], coref_preds, subtoken_map)
-                
+            
+            logging_df.loc[0, 'cur_val_f1'] = corefud_f1
+            logging_df.loc[0, 'cur_epoch'] = e + 1
+            
             epoch_time = time.time() - init_epoch_time
             epoch_time = time.strftime('%H:%M:%S', time.gmtime(epoch_time))
             print(f'Epoch {e:03d} took: {epoch_time}\n', flush=True)
@@ -176,8 +191,13 @@ class Trainer:
                 best_validation_f1 = corefud_f1
                 best_validation_path = ckpt_path
                 best_epoch = e
-                print("Best validation F1 attained. Saving model checkpoint.\n", flush=True)
+                
+                logging_df.loc[0, 'best_val_f1'] = corefud_f1
+                logging_df.loc[0, 'best_epoch'] = best_epoch + 1
+                
+                print("Best validation F1 attained. Saved model checkpoint.\n", flush=True)
             
+            logging_df.to_csv(csv_path)
             wandb.log({"loss": epoch_loss})
             
             if early_stopper.early_stop(corefud_f1):
@@ -185,6 +205,7 @@ class Trainer:
                 break
             
         print("Running evaluation on test set.", flush=True)
+        
         # load checkpoint with based validation F1
         self.load_ckpt(model, optimizer_bert, optimizer_task, scheduler_bert, scheduler_task, scaler)
         
@@ -205,6 +226,8 @@ class Trainer:
                 
         # evaluate with CorefUD scorer
         corefud_f1 = conll.evaluate_conll(self.config['test_gold_corefud_path'], self.config['predictions_path'], coref_preds, subtoken_map)
+        logging_df.loc[0, 'test_f1'] = corefud_f1
+        logging_df.to_csv(csv_path)
         print(f'Test F1: {corefud_f1}\n', flush=True)
         
     def save_ckpt(self, epoch, model, optimizer_bert, optimizer_task, scheduler_bert, scheduler_task, scaler):
@@ -227,7 +250,7 @@ class Trainer:
         ckpts = list(self.path.glob('ckpt_epoch-*.pt.tar'))
         if not ckpts:
             print(f'\nNo checkpoint found: Start training from scratch\n')
-            return 0, ""
+            return 0
 
         # get latest checkpoint
         latest_ckpt = max(ckpts, key=lambda p: p.stat().st_ctime)
@@ -240,7 +263,7 @@ class Trainer:
         scheduler_bert.load_state_dict(latest_ckpt['scheduler_bert'])
         scheduler_task.load_state_dict(latest_ckpt['scheduler_task'])
         scaler.load_state_dict(latest_ckpt['scaler'])
-        return latest_ckpt['epoch'] + 1, latest_ckpt
+        return latest_ckpt['epoch'] + 1
     
     def eval_antecedents(self, scores, antes, ment_starts, ment_ends, raw_data):
         # tensor to numpy array
