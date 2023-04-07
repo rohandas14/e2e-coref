@@ -1,8 +1,8 @@
 lang=polish
-exp=baseline
+exp=exp5
 config=([0]="multilingual-bert-base-$lang-100" [1]="multilingual-bert-base-$lang-50" [2]="multilingual-bert-base-$lang-10")
 path=([0]="multilingual-bert-base-fp32/$exp/$lang/lr/100" [1]="multilingual-bert-base-fp32/$exp/$lang/lr/50" [2]="multilingual-bert-base-fp32/$exp/$lang/lr/10")
-branch="bert-coref-baseline"
+branch="bert-coref-exp5"
 
 for i in {0..2}
 do 
