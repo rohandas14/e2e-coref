@@ -124,9 +124,10 @@ class Dataset(data.Dataset):
                 try:
                     sparse_vector = morph_map[str(token_map[j])]
                 except:
-                    print("i: " + str(i), flush=True)
-                    print("j: " + str(j), flush=True)
-                    print("token-map: " + str(token_map[j]), flush=True)
+                    # print("i: " + str(i), flush=True)
+                    # print("j: " + str(j), flush=True)
+                    # print("token-map: " + str(token_map[j]), flush=True)
+                    pass
                 feat_vector = torch.zeros(feat_vector_size)
                 if len(sparse_vector) > 0:
                     for feat_idx in sparse_vector:
