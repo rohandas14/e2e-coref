@@ -358,7 +358,7 @@ def minimize_language(args):
     # minimize_partition('test', 'conllu', args, tokenizer)
 
     minimize_partition('dev', 'conllu', args, tokenizer)
-    # minimize_partition('test', 'conllu', args, tokenizer)
+    minimize_partition('test', 'conllu', args, tokenizer)
     minimize_partition('train', 'conllu', args, tokenizer)
 
 
