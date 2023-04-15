@@ -294,21 +294,16 @@ def get_document(doc_key, language, seg_len, tokenizer, udapi_document=None):
         word_feats = node.feats._string.split('|') if node.feats else []
         word_feats_onehot = []
         ud_features_dict = ud_features.get_ud_features_dict()
+        if node.upos is not None or node.upos != "":
+            if node.upos in ud_features_dict:
+                word_feats_onehot.append((ud_features_dict[node.upos]))
+            else:
+                print("No POS found with key: " + node.upos, flush=True)
         for feat in word_feats:
             try:
-                if feat.startsWith("PronType"):
-                    prontypes = feat.split("=")[1].split(",")
-                    for prontype in prontypes:
-                        prontype_idx = "PronType=" + prontype
-                        word_feats_onehot.append(ud_features_dict[prontype_idx])
-                elif feat.startsWith("Case"):
-                    cases = feat.split("=")[1].split(",")
-                    for case in cases:
-                        case_idx = "Case=" + case
-                        word_feats_onehot.append(ud_features_dict[case_idx])
-                else:
-                    word_feats_onehot.append(ud_features_dict[feat])
+                word_feats_onehot.append(ud_features_dict[feat])
             except:
+                print("No feat found: " + feat, flush=True)
                 continue
         document_state.morph_features[word_idx] = word_feats_onehot
         subtokens = tokenizer.tokenize(word)
@@ -348,7 +343,6 @@ def minimize_partition(partition, extension, args, tokenizer):
             output_file.write('\n')
             doc_count += 1
     logger.info(f'Processed {doc_count} documents to {output_path}')
-
 
 def minimize_language(args):
     tokenizer = AutoTokenizer.from_pretrained(args.bert)
