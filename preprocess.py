@@ -344,7 +344,6 @@ def minimize_partition(partition, extension, args, tokenizer):
             doc_count += 1
     logger.info(f'Processed {doc_count} documents to {output_path}')
 
-
 def minimize_language(args):
     tokenizer = AutoTokenizer.from_pretrained(args.bert)
 
@@ -354,6 +353,7 @@ def minimize_language(args):
     # minimize_partition('test', 'conllu', args, tokenizer)
 
     minimize_partition('dev', 'conllu', args, tokenizer)
+    minimize_partition('test', 'conllu', args, tokenizer)
     minimize_partition('train', 'conllu', args, tokenizer)
 
 

@@ -5,7 +5,6 @@
 
 # ignore checkpoints and other data
 data
-datasets
 
 # ignore data downloaded and build up by setup.sh
 conll-2012
@@ -21,6 +20,7 @@ ontonotes-release-5.0
 
 # ignore CorefUD data
 CorefUD-1.0-public
+datasets
 
 # ignore logs
 logs
@@ -30,7 +30,8 @@ wandb
 
 # ignore slurm scripts
 evaluate.sh
+queue.sh
 train.sh
 train-alpine.sh
-tokenize.sh
 train-amd.sh
+tokenize.sh
