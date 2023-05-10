@@ -298,12 +298,13 @@ def get_document(doc_key, language, seg_len, tokenizer, udapi_document=None):
             if node.upos in ud_features_dict:
                 word_feats_onehot.append((ud_features_dict[node.upos]))
             else:
-                print("No POS found with key: " + node.upos, flush=True)
+                # print("No POS found with key: " + node.upos, flush=True)
+                pass
         for feat in word_feats:
             try:
                 word_feats_onehot.append(ud_features_dict[feat])
             except:
-                print("No feat found: " + feat, flush=True)
+                # print("No feat found: " + feat, flush=True)
                 continue
         document_state.morph_features[word_idx] = word_feats_onehot
         subtokens = tokenizer.tokenize(word)
