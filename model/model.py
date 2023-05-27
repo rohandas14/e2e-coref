@@ -55,11 +55,12 @@ class ModelTask(nn.Module):
 
         # mention embedding
         bert_size = self.config['bert_emb_size']
-        self.span_head = nn.Linear(bert_size, 1)
+
+        self.morph_dim = 64
+        self.span_head = nn.Linear(self.morph_dim, 1)
 
         # morphology embedding
         self.morph_feature_num = ud_features.get_ud_features_length()
-        self.morph_dim = 64
         self.morph_emb = nn.Linear(self.morph_feature_num, self.morph_dim)
 
         # feature embeddings
@@ -74,7 +75,7 @@ class ModelTask(nn.Module):
         # scorer for mentions and antecedents
         hidden_size = self.config['hidden_size']
         hidden_depth = self.config['hidden_depth']
-        ment_emb_size = 3 * bert_size + feature_size + self.morph_dim # RD: added morph size
+        ment_emb_size = 3 * self.morph_dim + feature_size
         ante_emb_size = 3 * ment_emb_size + 4 * feature_size
         # mention scoring
         self.mention_scorer = Scorer(ment_emb_size, hidden_size, hidden_depth, self.dropout)
@@ -104,9 +105,11 @@ class ModelTask(nn.Module):
         self.bins = torch.as_tensor(self.bins, dtype=torch.long, device=self.device)
 
     def ment_embedding(self, bert_emb, ment_starts, ment_ends, morph_feats, morph_feats_mask, doc_morph_feats):
+        morph_embs = self.morph_emb(doc_morph_feats.to(self.device))
+
         # get representation for start and end of mention
-        start_embs = bert_emb[ment_starts]
-        end_embs = bert_emb[ment_ends]
+        start_embs = morph_embs[ment_starts]
+        end_embs = morph_embs[ment_ends]
 
         # calculate distance between mentions
         ment_dist = ment_ends - ment_starts
@@ -117,28 +120,24 @@ class ModelTask(nn.Module):
         width_embs = torch.dropout(width_embs, self.dropout, self.training)
 
         # get head representation
-        doc_len, ment_num = len(bert_emb), len(ment_starts)
+        doc_len, ment_num = len(morph_embs), len(ment_starts)
         # transform mask 0 -> -inf / 1 -> 0 for softmax and add to embeddings
         doc_range = torch.arange(doc_len, device=self.device).expand(ment_num, -1)
         ment_mask = (ment_starts.view(-1, 1) <= doc_range) * (doc_range <= ment_ends.view(-1, 1))
         # calculate attention for word per mention
-        word_attn = self.span_head(bert_emb).view(1, -1)
+        word_attn = self.span_head(morph_embs).view(1, -1)
         # type depends on amp level (float or half)
         ment_mask = ment_mask.type(word_attn.dtype)
         ment_word_attn = word_attn + torch.log(ment_mask)
         ment_word_attn = F.softmax(ment_word_attn, dim=1)
         # calculate final head embedding as weighted sum
-        head_embs = torch.matmul(ment_word_attn, bert_emb)
-
-        # calculate morphology representation
-        morph_embs = self.morph_emb(doc_morph_feats.to(self.device))
-        attn_morph_embs = torch.matmul(ment_word_attn, morph_embs)
+        head_embs = torch.matmul(ment_word_attn, morph_embs)
 
         # combine different embeddings to single mention embedding
         # warning: different order than proposed in the paper
         # return torch.cat((start_embs, end_embs, width_embs, head_embs), dim=1), ment_dist
 
-        return torch.cat((start_embs, end_embs, width_embs, head_embs, attn_morph_embs), dim=1), ment_dist
+        return torch.cat((start_embs, end_embs, width_embs, head_embs), dim=1), ment_dist
 
     def prune_mentions(self, ment_starts, ment_ends, ment_scores, k):
         # get mention indices sorted by the mention score

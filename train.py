@@ -21,7 +21,7 @@ from early_stopper import EarlyStopper
 class Trainer:
 
     def __init__(self, conf, gpu, split):
-        seed = 126
+        seed = 42
         random.seed(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)
