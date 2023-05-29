@@ -3,6 +3,7 @@ import json
 import random
 import itertools
 import numpy as np
+import ud_features
 from pathlib import Path
 from torch.utils import data
 
@@ -81,11 +82,90 @@ class Dataset(data.Dataset):
         # cand-starts / cand-ends
         sent_map = doc['sent_map']
         token_map = doc['token_map']
+        morph_map = doc['morph_map']
 
-        cand_starts, cand_ends = self.create_candidates(sent_map, token_map, segm_len)
+        if "doc_morph_feats" in doc:
+            doc_morph_feats = doc["doc_morph_feats"]
+        else:
+            doc_morph_feats = self.morph_feats_mod(token_map, morph_map)
+
+        if "cand_starts" in doc and "cand_ends" in doc:
+            cand_starts = doc["cand_starts"]
+            cand_ends = doc["cand_ends"]
+        else:
+            cand_starts, cand_ends = self.create_candidates(sent_map, token_map, segm_len)
+            self.data[item]["cand_starts"] = cand_starts
+            self.data[item]["cand_ends"] = cand_ends
+
+        if "morph_feats" in doc and "morph_feats_mask" in doc:
+            morph_feats = doc["morph_feats"]
+            morph_feats_mask = doc["morph_feats_mask"]
+        else:
+            morph_feats, morph_feats_mask = self.morph_feats(cand_starts, cand_ends, token_map, morph_map)
+            self.data[item]["morph_feats"] = morph_feats
+            self.data[item]["morph_feats_mask"] = morph_feats_mask
 
         # return all necessary information for training and evaluation
-        return segms, segm_len, genre_id, speaker_ids, gold_starts, gold_ends, cluster_ids, cand_starts, cand_ends
+        return segms, segm_len, genre_id, speaker_ids, gold_starts, gold_ends, cluster_ids, cand_starts, cand_ends, morph_feats, morph_feats_mask, doc_morph_feats
+
+    def morph_feats(self, ment_starts, ment_ends, token_map, morph_map):
+        ment_starts = ment_starts.tolist()
+        ment_ends = ment_ends.tolist()
+        feat_vector_size = ud_features.get_ud_features_length()
+
+        morph_feats = []
+        morph_feats_mask = []
+        for i in range(0, len(ment_starts)):
+            men_morph_feats = []
+            men_mask = []
+            for j in range(ment_starts[i], ment_ends[i] + 1):
+                try:
+                    sparse_vector = morph_map[str(token_map[j])]
+                except:
+                    # print("i: " + str(i), flush=True)
+                    # print("j: " + str(j), flush=True)
+                    # print("token-map: " + str(token_map[j]), flush=True)
+                    pass
+                feat_vector = torch.zeros(feat_vector_size)
+                if len(sparse_vector) > 0:
+                    for feat_idx in sparse_vector:
+                        feat_vector[feat_idx] = 1
+                men_morph_feats.append(feat_vector)
+                men_mask.append(1)
+            men_morph_feats = torch.stack(men_morph_feats)
+            men_mask = torch.IntTensor(men_mask)
+            pad_length = self.config['max_ment_width'] - men_morph_feats.size(dim=0)
+            men_morph_feats = torch.nn.functional.pad(men_morph_feats, (0, 0, 0, pad_length), "constant", 0)
+            men_mask = torch.nn.functional.pad(men_mask, (0, pad_length), "constant", 0)
+            morph_feats.append(men_morph_feats)
+            morph_feats_mask.append(men_mask)
+
+        morph_feats = torch.stack(morph_feats)
+        morph_feats_mask = torch.stack(morph_feats_mask)
+        return morph_feats, morph_feats_mask
+
+    def morph_feats_mod(self, token_map, morph_map):
+        men_morph_feats = []
+        feat_vector_size = ud_features.get_ud_features_length()
+
+        # token_morph_map = [morph_map[str(i)] for i in token_map]
+
+        token_morph_map = []
+        for i in token_map:
+            try:
+                token_morph_map.append(morph_map[str(i)])
+            except:
+                token_morph_map.append([])
+
+        for token_sparse_vector in token_morph_map:
+            feat_vector = torch.zeros(feat_vector_size)
+            if len(token_sparse_vector) > 0:
+                for feat_idx in token_sparse_vector:
+                    feat_vector[feat_idx] = 1
+            men_morph_feats.append(feat_vector)
+        men_morph_feats = torch.stack(men_morph_feats)
+
+        return men_morph_feats
 
     def truncate(self, doc, max_segm_num):
         sents = doc['segments']
