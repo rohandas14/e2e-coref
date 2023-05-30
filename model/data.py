@@ -82,13 +82,7 @@ class Dataset(data.Dataset):
         # cand-starts / cand-ends
         sent_map = doc['sent_map']
         token_map = doc['token_map']
-        
-        try:
-            morph_map = doc['morph_map']
-        except:
-            print(str(doc['doc_key']), str(doc.keys()))
-            print(str(doc))
-            raise Exception("Dict error")
+        morph_map = doc['morph_map']
 
         if "doc_morph_feats" in doc:
             doc_morph_feats = doc["doc_morph_feats"]
@@ -201,6 +195,7 @@ class Dataset(data.Dataset):
             'token_map': doc['token_map'][word_start:word_end],
             'speakers': doc['speakers'][sentence_start:sentence_end],
             'clusters': clusters,
+            'morph_map': doc['morph_map']
         }
 
         # return truncated doc and offset
