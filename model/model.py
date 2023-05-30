@@ -1,6 +1,7 @@
 import math
 import torch
 import torch.nn as nn
+import ud_features
 from torch.functional import F
 from torch.utils.checkpoint import checkpoint
 from transformers import AutoConfig, AutoModel, AutoTokenizer
@@ -55,7 +56,13 @@ class ModelTask(nn.Module):
 
         # mention embedding
         bert_size = self.config['bert_emb_size']
-        self.span_head = nn.Linear(bert_size, 1)
+
+        self.morph_dim = 64
+        self.span_head = nn.Linear(self.morph_dim, 1)
+
+        # morphology embedding
+        self.morph_feature_num = ud_features.get_ud_features_length()
+        self.morph_emb = nn.Linear(self.morph_feature_num, self.morph_dim)
 
         # feature embeddings
         bin_width = self.config['bin_widths']
@@ -69,7 +76,7 @@ class ModelTask(nn.Module):
         # scorer for mentions and antecedents
         hidden_size = self.config['hidden_size']
         hidden_depth = self.config['hidden_depth']
-        ment_emb_size = 3 * bert_size + feature_size
+        ment_emb_size = 3 * self.morph_dim + feature_size
         ante_emb_size = 3 * ment_emb_size + 4 * feature_size
         # mention scoring
         self.mention_scorer = Scorer(ment_emb_size, hidden_size, hidden_depth, self.dropout)
@@ -98,10 +105,12 @@ class ModelTask(nn.Module):
             self.bins.extend([i] * w)
         self.bins = torch.as_tensor(self.bins, dtype=torch.long, device=self.device)
 
-    def ment_embedding(self, bert_emb, ment_starts, ment_ends):
+    def ment_embedding(self, bert_emb, ment_starts, ment_ends, morph_feats, morph_feats_mask, doc_morph_feats):
+        morph_embs = self.morph_emb(doc_morph_feats.to(self.device))
+
         # get representation for start and end of mention
-        start_embs = bert_emb[ment_starts]
-        end_embs = bert_emb[ment_ends]
+        start_embs = morph_embs[ment_starts]
+        end_embs = morph_embs[ment_ends]
 
         # calculate distance between mentions
         ment_dist = ment_ends - ment_starts
@@ -112,18 +121,18 @@ class ModelTask(nn.Module):
         width_embs = torch.dropout(width_embs, self.dropout, self.training)
 
         # get head representation
-        doc_len, ment_num = len(bert_emb), len(ment_starts)
+        doc_len, ment_num = len(morph_embs), len(ment_starts)
         # transform mask 0 -> -inf / 1 -> 0 for softmax and add to embeddings
         doc_range = torch.arange(doc_len, device=self.device).expand(ment_num, -1)
         ment_mask = (ment_starts.view(-1, 1) <= doc_range) * (doc_range <= ment_ends.view(-1, 1))
         # calculate attention for word per mention
-        word_attn = self.span_head(bert_emb).view(1, -1)
+        word_attn = self.span_head(morph_embs).view(1, -1)
         # type depends on amp level (float or half)
         ment_mask = ment_mask.type(word_attn.dtype)
         ment_word_attn = word_attn + torch.log(ment_mask)
         ment_word_attn = F.softmax(ment_word_attn, dim=1)
         # calculate final head embedding as weighted sum
-        head_embs = torch.matmul(ment_word_attn, bert_emb)
+        head_embs = torch.matmul(ment_word_attn, morph_embs)
 
         # combine different embeddings to single mention embedding
         # warning: different order than proposed in the paper
@@ -250,9 +259,9 @@ class ModelTask(nn.Module):
         dummy_labels = ~labels.any(dim=1, keepdim=True)
         return torch.cat((dummy_labels, labels), dim=1)
 
-    def forward_fast(self, bert_emb, speaker_ids, cand_starts, cand_ends):
+    def forward_fast(self, bert_emb, speaker_ids, cand_starts, cand_ends, morph_feats, morph_feats_mask, doc_morph_feats):
         # get candidate mentions and scores
-        cand_embs, cand_dist = self.ment_embedding(bert_emb, cand_starts.to(self.device), cand_ends.to(self.device))
+        cand_embs, cand_dist = self.ment_embedding(bert_emb.to(self.device), cand_starts.to(self.device), cand_ends.to(self.device), morph_feats.to(self.device), morph_feats_mask.to(self.device), doc_morph_feats.to(self.device))
         cand_scores = self.mention_scorer(cand_embs).squeeze()
         # combine old mention scores and width score (bert-coref)
         width_scores = self.ment_width_scorer(self.ment_width_scorer_emb)
@@ -291,13 +300,13 @@ class ModelTask(nn.Module):
         ment_embs = f * attended_emb + (1 - f) * ment_embs
         return ment_embs, ante_scores
 
-    def forward(self, bert_emb, segm_len, genre_id, speaker_ids, gold_starts, gold_ends, cluster_ids, cand_starts, cand_ends):
+    def forward(self, bert_emb, segm_len, genre_id, speaker_ids, gold_starts, gold_ends, cluster_ids, cand_starts, cand_ends, morph_feats, morph_feats_mask, doc_morph_feats):
         # create sentence mask to flatten tensors
         sent_num, max_segm_len = len(segm_len), max(segm_len)
         sent_mask = torch.arange(max_segm_len).view(1, -1).repeat(sent_num, 1) < torch.as_tensor(segm_len).view(-1, 1)
 
         # compute fast scores until next checkpoint
-        inputs = (bert_emb, speaker_ids, cand_starts, cand_ends)
+        inputs = (bert_emb, speaker_ids, cand_starts, cand_ends, morph_feats, morph_feats_mask, doc_morph_feats)
         fast_scores, cand_scores, ment_embs = self.condCheckpoint(self.forward_fast, *inputs)
 
         # compute distance between mention and antecedent on segment level (bert-coref)
