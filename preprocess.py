@@ -345,15 +345,6 @@ def get_document(doc_key, language, seg_len, tokenizer, udapi_document=None):
         document = document_state.finalize()
     return document
 
-    # Split documents
-    constraints1 = document_state.sentence_end if language != 'arabic' else document_state.token_end
-    split_into_segments(document_state, seg_len, constraints1, document_state.token_end, tokenizer)
-    if udapi_document is not None:
-        document = document_state.finalize_from_udapi(udapi_document)
-    else:
-        document = document_state.finalize()
-    return document
-
 
 def minimize_partition(partition, extension, args, tokenizer):
     input_path = os.path.join(args.input_folder, f'{args.language}-{partition}.{extension}')

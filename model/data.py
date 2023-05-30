@@ -82,7 +82,13 @@ class Dataset(data.Dataset):
         # cand-starts / cand-ends
         sent_map = doc['sent_map']
         token_map = doc['token_map']
-        morph_map = doc['morph_map']
+        
+        try:
+            morph_map = doc['morph_map']
+        except:
+            print(str(doc['doc_key']), str(doc.keys()))
+            print(str(doc))
+            raise Exception("Dict error")
 
         if "doc_morph_feats" in doc:
             doc_morph_feats = doc["doc_morph_feats"]

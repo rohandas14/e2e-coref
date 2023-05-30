@@ -161,7 +161,7 @@ class Trainer:
                 for j, val_batch in enumerate(self.val_dataloader):
                     # collect data for evaluating batch
                     with torch.cuda.amp.autocast(enabled=amp):
-                        _, segm_len, _, _, gold_starts, gold_ends, _, cand_starts, cand_ends = val_batch
+                        _, segm_len, _, _, gold_starts, gold_ends, _, cand_starts, cand_ends, morph_feats, morph_feats_mask, doc_morph_feats = val_batch
                         scores, labels, antes, ment_starts, ment_ends, cand_scores = model(*val_batch)
 
                     raw_data = self.val_dataset.get_raw_data(j)
@@ -216,7 +216,7 @@ class Trainer:
             for j, test_batch in enumerate(self.test_dataloader):
                 # collect data for evaluating batch
                 with torch.cuda.amp.autocast(enabled=amp):
-                    _, segm_len, _, _, gold_starts, gold_ends, _, cand_starts, cand_ends = test_batch
+                    _, segm_len, _, _, gold_starts, gold_ends, _, cand_starts, cand_ends, morph_feats, morph_feats_mask, doc_morph_feats = test_batch
                     scores, labels, antes, ment_starts, ment_ends, cand_scores = model(*test_batch)
 
                 raw_data = self.test_dataset.get_raw_data(j)
