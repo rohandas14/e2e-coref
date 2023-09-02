@@ -170,7 +170,9 @@ class Trainer:
                     subtoken_map[raw_data['doc_key']] = raw_data['token_map']
                 
             # evaluate with CorefUD scorer
-            corefud_f1 = conll.evaluate_conll(self.config['eval_gold_corefud_path'], self.config['predictions_path'], coref_preds, subtoken_map)
+            val_preds_file = self.config['predictions_file_name_prefix'] + 'val-preds.conllu'
+            val_preds_path = os.path.join(self.path, val_preds_file)
+            corefud_f1 = conll.evaluate_conll(self.config['eval_gold_corefud_path'], val_preds_path, coref_preds, subtoken_map)
             
             logging_df.loc[0, 'cur_val_f1'] = corefud_f1
             logging_df.loc[0, 'cur_epoch'] = e+1
@@ -225,7 +227,9 @@ class Trainer:
                 subtoken_map[raw_data['doc_key']] = raw_data['token_map']
                 
         # evaluate with CorefUD scorer
-        corefud_f1 = conll.evaluate_conll(self.config['test_gold_corefud_path'], self.config['predictions_path'], coref_preds, subtoken_map)
+        test_preds_file = self.config['predictions_file_name_prefix'] + 'test-preds.conllu'
+        test_preds_path = os.path.join(self.path, test_preds_file)
+        corefud_f1 = conll.evaluate_conll(self.config['test_gold_corefud_path'], test_preds_path, coref_preds, subtoken_map)
         logging_df.loc[0, 'test_f1'] = corefud_f1
         logging_df.to_csv(csv_path)
         print(f'Test F1: {corefud_f1}\n', flush=True)
